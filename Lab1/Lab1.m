@@ -1,3 +1,88 @@
+global DERIVATIVE_TYPE_DIFF;
+global DERIVATIVE_TYPE_LEFT;
+global DERIVATIVE_TYPE_RIGHT;
+global DERIVATIVE_TYPE_CENTRAL;
+global derivative_type;
+
+global DERIVATIVE_PRECISION;
+
+DERIVATIVE_TYPE_DIFF = 0;
+DERIVATIVE_TYPE_LEFT = DERIVATIVE_TYPE_DIFF + 1;
+DERIVATIVE_TYPE_RIGHT = DERIVATIVE_TYPE_LEFT + 1;
+DERIVATIVE_TYPE_CENTRAL = DERIVATIVE_TYPE_RIGHT + 1;
+derivative_type = DERIVATIVE_TYPE_LEFT;
+DERIVATIVE_PRECISION = 0.000001;
+
+function [derivative_val] = calculate_left_derivative(f, x, h)
+    derivative_val = (f(x) - f(x - h)) / h;
+end
+
+function [derivative_val] = calculate_right_derivative(f, x, h)
+    derivative_val = (f(x + h) - f(x)) / h;
+end
+
+function [derivative_val] = calculate_central_derivative(f, x, h)
+    derivative_val = (f(x + h) - f(x - h)) / (h * 2);
+end
+
+function [derivative_val] = calculate_second_left_derivative(f, x, h)
+    %derivative_val = (f(x) - (2*f(x - h)) - f(x - 2*h)) / h^2;
+    derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
+end
+
+function [derivative_val] = calculate_second_right_derivative(f, x, h)
+    %derivative_val = (f(x + 2*h) - f(x)) / h^2;
+    derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
+end
+
+function [derivative_val] = calculate_second_central_derivative(f, x, h)
+    derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
+end
+
+function [derivative_val] = first_derivative(func, arg)
+    global DERIVATIVE_TYPE_DIFF;
+    global DERIVATIVE_TYPE_LEFT;
+    global DERIVATIVE_TYPE_RIGHT;
+    global DERIVATIVE_TYPE_CENTRAL;
+    global derivative_type;
+    global DERIVATIVE_PRECISION;
+    switch derivative_type
+        case DERIVATIVE_TYPE_DIFF
+            syms f(x);
+            f(x) = func;
+            df = diff(f, x);
+            derivative_val = double(df(arg));
+        case DERIVATIVE_TYPE_LEFT
+            derivative_val = calculate_left_derivative(func, arg, DERIVATIVE_PRECISION);
+        case DERIVATIVE_TYPE_RIGHT
+            derivative_val = calculate_right_derivative(func, arg, DERIVATIVE_PRECISION);
+        case DERIVATIVE_TYPE_CENTRAL
+            derivative_val = calculate_central_derivative(func, arg, DERIVATIVE_PRECISION);
+    end
+end
+
+function [derivative_val] = second_derivative(func, arg)
+    global DERIVATIVE_TYPE_DIFF;
+    global DERIVATIVE_TYPE_LEFT;
+    global DERIVATIVE_TYPE_RIGHT;
+    global DERIVATIVE_TYPE_CENTRAL;
+    global derivative_type;
+    global DERIVATIVE_PRECISION;
+    switch derivative_type
+        case DERIVATIVE_TYPE_DIFF
+            syms f(x);
+            f(x) = func;
+            ddf = diff(f, x, 2);
+            derivative_val = double(ddf(arg));
+        case DERIVATIVE_TYPE_LEFT
+            derivative_val = calculate_second_left_derivative(func, arg, DERIVATIVE_PRECISION);
+        case DERIVATIVE_TYPE_RIGHT
+            derivative_val = calculate_second_right_derivative(func, arg, DERIVATIVE_PRECISION);
+        case DERIVATIVE_TYPE_CENTRAL
+            derivative_val = calculate_second_central_derivative(func, arg, DERIVATIVE_PRECISION);
+    end
+end
+
 function [xmin, fmin] = bruteforce(f, start, stop, precision)
 
     n = ceil((stop - start)/precision);
@@ -11,6 +96,7 @@ function [xmin, fmin] = digitwise(f, start, stop, precision)
     delta = 1;
     x = start;
     direction = 1;
+    yprev = 0;
     while delta > precision
         delta = delta / 4;
         yprev = f(start);
@@ -128,30 +214,36 @@ function [xmin, fmin] = parabolic(f, start, stop, target_precision)
 end
 
 function [xmin, fmin] = middlepoint(func, start, stop, target_precision)
-    syms f(x)
-    f(x) = func;
-    df = diff(f, x);
+    %syms f(x)
+    %f(x) = func;
+    %df = diff(f, x);
     xmin = (stop + start) / 2;
-    dfmin = df(xmin);
+    %dfmin = df(xmin);
+    dfmin = first_derivative(func, xmin);
     while abs(dfmin) > target_precision
         if dfmin > 0
-            xmin = (start + xmin) / 2;
+            stop = xmin;
         else
-            xmin = (xmin + stop) / 2;
+            start = xmin;
         end
-        dfmin = df(xmin);
+        xmin = (start + stop) / 2;
+        dfmin = first_derivative(func, xmin);
+        %dfmin = df(xmin);
     end
     fmin = func(xmin);
 end
 
 function [xmin, fmin] = chord(func, start, stop, target_precision)
-    syms f(x)
-    f(x) = func;
-    df = diff(f, x);
-    dfa = df(start);
-    dfb = df(stop);
+    %syms f(x)
+    %f(x) = func;
+    %df = diff(f, x);
+    %dfa = df(start);
+    %dfb = df(stop);
+    dfa = first_derivative(func, start);
+    dfb = first_derivative(func, stop);
     xmin = start - (dfa / (dfa - dfb)) * (start - stop);
-    dfmin = df(xmin);
+    %dfmin = df(xmin);
+    dfmin = first_derivative(func, xmin);
     while abs(dfmin) > target_precision
         if dfmin > 0
             stop = xmin;
@@ -161,64 +253,74 @@ function [xmin, fmin] = chord(func, start, stop, target_precision)
             dfa = dfmin;
         end
         xmin = start - (dfa / (dfa - dfb)) * (start - stop);
-        dfmin = df(xmin);
+        %dfmin = df(xmin);
+        dfmin = first_derivative(func, xmin);
     end
     fmin = func(xmin);
 end
 
 function [xmin, fmin] = Newton(func, start, stop, target_precision)
-    syms f(x)
-    f(x) = func;
-    df = diff(f, x);
-    ddf = diff(df, x);
+    %syms f(x)
+    %f(x) = func;
+    %df = diff(f, x);
+    %ddf = diff(df, x);
     xmin = (stop + start) / 2;
-    dfmin = df(xmin);
-    ddfmin = ddf(xmin);
+    %dfmin = df(xmin);
+    %ddfmin = ddf(xmin);
+    dfmin = first_derivative(func, xmin);
+    ddfmin = second_derivative(func, xmin);
     while abs(dfmin) > target_precision
         xmin = xmin - dfmin/ddfmin;
-        dfmin = df(xmin);
-        ddfmin = ddf(xmin);
+        %dfmin = df(xmin);
+        %ddfmin = ddf(xmin);
+        dfmin = first_derivative(func, xmin);
+        ddfmin = second_derivative(func, xmin);
     end
     fmin = func(xmin);
 end
 
+target_precision = 0.000001;
+start = -1;
+stop = 0;
 f = @(x) x.^4 + x.^2 + x.^1 + 1;
-[x, y] = bruteforce(f, -1, 0, 0.000001);
+
+
+[x, y] = bruteforce(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = digitwise(f, -1, 0, 0.000001);
+[x, y] = digitwise(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = dichotomy(f, -1, 0, 0.000001);
+[x, y] = dichotomy(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = goldenratio(f, -1, 0, 0.000001);
+[x, y] = goldenratio(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = parabolic(f, -1, 0, 0.000001);
+[x, y] = parabolic(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = middlepoint(f, -1, 0, 0.000001);
+[x, y] = middlepoint(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = chord(f, -1, 0, 0.000001);
+[x, y] = chord(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = Newton(f, -1, 0, 0.000001);
+[x, y] = Newton(f, start, stop, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
