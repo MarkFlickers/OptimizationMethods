@@ -3,6 +3,8 @@ global DERIVATIVE_TYPE_LEFT;
 global DERIVATIVE_TYPE_RIGHT;
 global DERIVATIVE_TYPE_CENTRAL;
 global derivative_type;
+global ddf;
+global df;
 
 global DERIVATIVE_PRECISION;
 
@@ -45,11 +47,13 @@ function [derivative_val] = first_derivative(func, arg)
     global DERIVATIVE_TYPE_CENTRAL;
     global derivative_type;
     global DERIVATIVE_PRECISION;
+    global ddf;
+    global df;
     switch derivative_type
         case DERIVATIVE_TYPE_DIFF
-            syms f(x);
-            f(x) = func;
-            df = diff(f, x);
+            %syms f(x);
+            %f(x) = func;
+            %df = diff(f, x);
             derivative_val = double(df(arg));
         case DERIVATIVE_TYPE_LEFT
             derivative_val = calculate_left_derivative(func, arg, DERIVATIVE_PRECISION);
@@ -67,11 +71,13 @@ function [derivative_val] = second_derivative(func, arg)
     global DERIVATIVE_TYPE_CENTRAL;
     global derivative_type;
     global DERIVATIVE_PRECISION;
+    global ddf;
+    global df;
     switch derivative_type
         case DERIVATIVE_TYPE_DIFF
-            syms f(x);
-            f(x) = func;
-            ddf = diff(f, x, 2);
+            %syms f(x);
+            %f(x) = func;
+            %ddf = diff(f, x, 2);
             derivative_val = double(ddf(arg));
         case DERIVATIVE_TYPE_LEFT
             derivative_val = calculate_second_left_derivative(func, arg, DERIVATIVE_PRECISION);
@@ -339,7 +345,13 @@ DERIVATIVE_PRECISION = target_precision;
 start = -1;
 stop = 0;
 f = @(x) x.^4 + x.^2 + x.^1 + 1;
+syms func(x);
+func(x) = f;
+df = diff(func, x);
+ddf = diff(func, x, 2);
 
+xline = linspace(start, stop, 1000);
+plot(xline, f(xline))
 
 [x, y] = bruteforce(f, start, stop, target_precision);
 
@@ -393,24 +405,24 @@ x = num2str(x, 8)
 y = num2str(y, 8)
 
 
-% f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
-% 
-% start_flag = 0;
-% step = 0.1;
-% for start = -5:step:5
-%     [x, y] = Newton(f, start, target_precision);
-%     if abs(x) < 1e-2
-%         if start_flag == 0
-%             range_start = start;
-%             start_flag = 1;
-%         end
-%     elseif start_flag == 1
-%         range_end = start - step;
-%         start_flag = 0;
-%         break
-%     end
-% end
-% 
-% range_start, range_end
-%x = num2str(x, 8)
-%y = num2str(y, 8)
+f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
+
+start_flag = 0;
+step = 0.01;
+for start = -2:step:2
+    [x, y] = Newton(f, start, target_precision);
+    if abs(x) < 1e-2
+        if start_flag == 0
+            range_start = start;
+            start_flag = 1;
+        end
+    elseif start_flag == 1
+        range_end = start - step;
+        start_flag = 0;
+        break
+    end
+end
+
+range_start, range_end
+x = num2str(x, 8)
+y = num2str(y, 8)
