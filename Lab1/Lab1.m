@@ -10,8 +10,7 @@ DERIVATIVE_TYPE_DIFF = 0;
 DERIVATIVE_TYPE_LEFT = DERIVATIVE_TYPE_DIFF + 1;
 DERIVATIVE_TYPE_RIGHT = DERIVATIVE_TYPE_LEFT + 1;
 DERIVATIVE_TYPE_CENTRAL = DERIVATIVE_TYPE_RIGHT + 1;
-derivative_type = DERIVATIVE_TYPE_LEFT;
-DERIVATIVE_PRECISION = 0.000001;
+derivative_type = DERIVATIVE_TYPE_DIFF;
 
 function [derivative_val] = calculate_left_derivative(f, x, h)
     derivative_val = (f(x) - f(x - h)) / h;
@@ -259,20 +258,76 @@ function [xmin, fmin] = chord(func, start, stop, target_precision)
     fmin = func(xmin);
 end
 
-function [xmin, fmin] = Newton(func, start, stop, target_precision)
+function [xmin, fmin] = Newton(func, start, target_precision)
     %syms f(x)
     %f(x) = func;
     %df = diff(f, x);
     %ddf = diff(df, x);
-    xmin = (stop + start) / 2;
+    xmin = start;
     %dfmin = df(xmin);
     %ddfmin = ddf(xmin);
     dfmin = first_derivative(func, xmin);
     ddfmin = second_derivative(func, xmin);
+    step = abs(dfmin/ddfmin);
     while abs(dfmin) > target_precision
         xmin = xmin - dfmin/ddfmin;
+        prevstep = step;
+        step = abs(dfmin/ddfmin);
         %dfmin = df(xmin);
         %ddfmin = ddf(xmin);
+        if (step - prevstep) > 0
+            xmin = Inf;
+            break
+        end 
+        dfmin = first_derivative(func, xmin);
+        ddfmin = second_derivative(func, xmin);
+    end
+    fmin = func(xmin);
+end
+
+function [xmin, fmin] = Newton_Raphson(func, start, target_precision)
+    xmin = start;
+    dfmin = first_derivative(func, xmin);
+    ddfmin = second_derivative(func, xmin);
+    step = abs(dfmin/ddfmin);
+    while abs(dfmin) > target_precision
+        xrude = xmin - dfmin/ddfmin;
+        dfxrude = first_derivative(func, xrude);
+        tau = dfmin^2 / (dfmin^2 + dfxrude^2);
+        xmin = xmin - dfmin/ddfmin * tau;
+        prevstep = step;
+        step = abs(dfmin/ddfmin);
+        if (step - prevstep) > 0
+            xmin = Inf;
+            break
+        end 
+        dfmin = first_derivative(func, xmin);
+        ddfmin = second_derivative(func, xmin);
+    end
+    fmin = func(xmin);
+end
+
+function [xmin, fmin] = Marquardt(func, start, target_precision)
+    xmin = start;
+    dfmin = first_derivative(func, xmin);
+    ddfmin = second_derivative(func, xmin);
+    step = abs(dfmin/ddfmin);
+    mu = ddfmin * 10;
+    fx = func(xmin);
+    while abs(dfmin) > target_precision
+        xmin = xmin - dfmin/(ddfmin + mu);
+        if fx > func(xmin)
+            mu = mu / 2;
+        else
+            mu = mu * 2;
+        end
+        fx = func(xmin);
+        prevstep = step;
+        step = abs(dfmin/ddfmin);
+        if (step - prevstep) > 0
+            xmin = Inf;
+            break
+        end 
         dfmin = first_derivative(func, xmin);
         ddfmin = second_derivative(func, xmin);
     end
@@ -280,6 +335,7 @@ function [xmin, fmin] = Newton(func, start, stop, target_precision)
 end
 
 target_precision = 0.000001;
+DERIVATIVE_PRECISION = target_precision;
 start = -1;
 stop = 0;
 f = @(x) x.^4 + x.^2 + x.^1 + 1;
@@ -320,8 +376,41 @@ y = num2str(y, 8)
 x = num2str(x, 8)
 y = num2str(y, 8)
 
-[x, y] = Newton(f, start, stop, target_precision);
+[x, y] = Newton(f, (start + stop) / 2, target_precision);
 
 x = num2str(x, 8)
 y = num2str(y, 8)
 
+
+[x, y] = Newton_Raphson(f, (start + stop) / 2, target_precision);
+
+x = num2str(x, 8)
+y = num2str(y, 8)
+
+[x, y] = Marquardt(f, (start + stop) / 2, target_precision);
+
+x = num2str(x, 8)
+y = num2str(y, 8)
+
+
+% f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
+% 
+% start_flag = 0;
+% step = 0.1;
+% for start = -5:step:5
+%     [x, y] = Newton(f, start, target_precision);
+%     if abs(x) < 1e-2
+%         if start_flag == 0
+%             range_start = start;
+%             start_flag = 1;
+%         end
+%     elseif start_flag == 1
+%         range_end = start - step;
+%         start_flag = 0;
+%         break
+%     end
+% end
+% 
+% range_start, range_end
+%x = num2str(x, 8)
+%y = num2str(y, 8)
