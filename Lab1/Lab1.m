@@ -26,17 +26,7 @@ function [derivative_val] = calculate_central_derivative(f, x, h)
     derivative_val = (f(x + h) - f(x - h)) / (h * 2);
 end
 
-function [derivative_val] = calculate_second_left_derivative(f, x, h)
-    %derivative_val = (f(x) - (2*f(x - h)) - f(x - 2*h)) / h^2;
-    derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
-end
-
-function [derivative_val] = calculate_second_right_derivative(f, x, h)
-    %derivative_val = (f(x + 2*h) - f(x)) / h^2;
-    derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
-end
-
-function [derivative_val] = calculate_second_central_derivative(f, x, h)
+function [derivative_val] = calculate_second_derivative(f, x, h)
     derivative_val = (f(x + h) - (2*f(x)) + f(x - h)) / h^2;
 end
 
@@ -47,13 +37,9 @@ function [derivative_val] = first_derivative(func, arg)
     global DERIVATIVE_TYPE_CENTRAL;
     global derivative_type;
     global DERIVATIVE_PRECISION;
-    global ddf;
     global df;
     switch derivative_type
         case DERIVATIVE_TYPE_DIFF
-            %syms f(x);
-            %f(x) = func;
-            %df = diff(f, x);
             derivative_val = double(df(arg));
         case DERIVATIVE_TYPE_LEFT
             derivative_val = calculate_left_derivative(func, arg, DERIVATIVE_PRECISION);
@@ -72,29 +58,37 @@ function [derivative_val] = second_derivative(func, arg)
     global derivative_type;
     global DERIVATIVE_PRECISION;
     global ddf;
-    global df;
     switch derivative_type
         case DERIVATIVE_TYPE_DIFF
-            %syms f(x);
-            %f(x) = func;
-            %ddf = diff(f, x, 2);
             derivative_val = double(ddf(arg));
         case DERIVATIVE_TYPE_LEFT
-            derivative_val = calculate_second_left_derivative(func, arg, DERIVATIVE_PRECISION);
+            derivative_val = calculate_second_derivative(func, arg, DERIVATIVE_PRECISION);
         case DERIVATIVE_TYPE_RIGHT
-            derivative_val = calculate_second_right_derivative(func, arg, DERIVATIVE_PRECISION);
+            derivative_val = calculate_second_derivative(func, arg, DERIVATIVE_PRECISION);
         case DERIVATIVE_TYPE_CENTRAL
-            derivative_val = calculate_second_central_derivative(func, arg, DERIVATIVE_PRECISION);
+            derivative_val = calculate_second_derivative(func, arg, DERIVATIVE_PRECISION);
     end
+end
+
+function L = get_lipschitz_const(f, start, stop, precision)
+    global df;
+    [xL, L] = bruteforce(-abs(df), start, stop, precision);
 end
 
 function [xmin, fmin] = bruteforce(f, start, stop, precision)
 
     n = ceil((stop - start)/precision);
     x = linspace(start, stop, n);
-    y = f(x);
-    [fmin, ind] = min(y);
-    xmin = x(ind);
+    yprev = f(start);
+    for i = 2:n
+        y = f(x(i));
+        if y > yprev
+            fmin = yprev;
+            xmin = x(i-1);
+            break
+        end
+        yprev = y;
+    end
 end
 
 function [xmin, fmin] = digitwise(f, start, stop, precision)
@@ -406,23 +400,45 @@ y = num2str(y, 8)
 
 
 f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
+syms func(x);
+func(x) = f;
+df = diff(func, x);
+ddf = diff(func, x, 2);
 
-start_flag = 0;
-step = 0.01;
-for start = -2:step:2
-    [x, y] = Newton(f, start, target_precision);
-    if abs(x) < 1e-2
-        if start_flag == 0
-            range_start = start;
-            start_flag = 1;
-        end
-    elseif start_flag == 1
-        range_end = start - step;
-        start_flag = 0;
-        break
-    end
-end
+% start_flag = 0;
+% step = 0.01;
+% for start = -2:step:2
+%     [x, y] = Newton(f, start, target_precision);
+%     if abs(x) < 1e-2
+%         if start_flag == 0
+%             range_start = start;
+%             start_flag = 1;
+%         end
+%     elseif start_flag == 1
+%         range_end = start - step;
+%         start_flag = 0;
+%         break
+%     end
+% end
+% 
+% range_start, range_end
 
-range_start, range_end
-x = num2str(x, 8)
-y = num2str(y, 8)
+
+f = @(x) cos(x)./(x.^2);
+syms func(x);
+func(x) = f;
+df = diff(func, x);
+ddf = diff(func, x, 2);
+start = 1;
+stop = 12;
+target_precision = 0.000001;
+L = abs(double(get_lipschitz_const(f, start, stop, target_precision)))
+n = L * (stop - start) / (target_precision * 2)
+
+f = @(x) 1/10 .* x + 2.*sin(4.*x);
+syms func(x);
+func(x) = f;
+df = diff(func, x);
+ddf = diff(func, x, 2);
+start = 0;
+stop = 4;
