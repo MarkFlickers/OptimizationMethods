@@ -72,23 +72,17 @@ end
 
 function L = get_lipschitz_const(f, start, stop, precision)
     global df;
-    [xL, L] = bruteforce(-abs(df), start, stop, precision);
+    func = @(x) -abs(df(x));
+    [xL, L] = bruteforce(func, start, stop, precision);
 end
 
 function [xmin, fmin] = bruteforce(f, start, stop, precision)
 
     n = ceil((stop - start)/precision);
-    x = linspace(start, stop, n);
-    yprev = f(start);
-    for i = 2:n
-        y = f(x(i));
-        if y > yprev
-            fmin = yprev;
-            xmin = x(i-1);
-            break
-        end
-        yprev = y;
-    end
+    arg = linspace(start, stop, n);
+    y = f(arg);
+    [fmin, ind] = min(y);
+    xmin = arg(ind);
 end
 
 function [xmin, fmin] = digitwise(f, start, stop, precision)
@@ -341,8 +335,8 @@ stop = 0;
 f = @(x) x.^4 + x.^2 + x.^1 + 1;
 syms func(x);
 func(x) = f;
-df = diff(func, x);
-ddf = diff(func, x, 2);
+df = matlabFunction(diff(func, x));
+ddf = matlabFunction(diff(func, x, 2));
 
 xline = linspace(start, stop, 1000);
 plot(xline, f(xline))
@@ -402,8 +396,8 @@ y = num2str(y, 8)
 f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
 syms func(x);
 func(x) = f;
-df = diff(func, x);
-ddf = diff(func, x, 2);
+df = matlabFunction(diff(func, x));
+ddf = matlabFunction(diff(func, x, 2));
 
 % start_flag = 0;
 % step = 0.01;
@@ -427,18 +421,29 @@ ddf = diff(func, x, 2);
 f = @(x) cos(x)./(x.^2);
 syms func(x);
 func(x) = f;
-df = diff(func, x);
-ddf = diff(func, x, 2);
+df = matlabFunction(diff(func, x));
+ddf = matlabFunction(diff(func, x, 2));
 start = 1;
 stop = 12;
 target_precision = 0.000001;
 L = abs(double(get_lipschitz_const(f, start, stop, target_precision)))
 n = L * (stop - start) / (target_precision * 2)
+[x, y] = bruteforce(f, start, stop, target_precision);
+
+x = num2str(x, 8)
+y = num2str(y, 8)
 
 f = @(x) 1/10 .* x + 2.*sin(4.*x);
 syms func(x);
 func(x) = f;
-df = diff(func, x);
-ddf = diff(func, x, 2);
+df = matlabFunction(diff(func, x));
+ddf = matlabFunction(diff(func, x, 2));
 start = 0;
 stop = 4;
+target_precision = 0.000001;
+L = abs(double(get_lipschitz_const(f, start, stop, target_precision)))
+n = L * (stop - start) / (target_precision * 2)
+[x, y] = bruteforce(f, start, stop, target_precision);
+
+x = num2str(x, 8)
+y = num2str(y, 8)
