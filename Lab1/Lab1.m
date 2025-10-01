@@ -437,13 +437,13 @@ function plotSingleFunction(f, start, stop)
     hold off;
 end
 
-function plotTableFunctionsLogLog(tableData, xLimits, yLimits)
+function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     % tableData: table where first column is x-values, subsequent columns are y-values
     % xLimits: [xmin, xmax] for x-axis limits
     % yLimits: [ymin, ymax] for y-axis limits
     
     % Extract x and y data
-    x = tableData{:, 1}; % First column as x-values
+    x = tableData(:, 1); % First column as x-values
     
     figure;
     hold on;
@@ -451,23 +451,21 @@ function plotTableFunctionsLogLog(tableData, xLimits, yLimits)
     % Plot each function (each column after the first)
     numFunctions = size(tableData, 2) - 1;
     colors = lines(numFunctions); % Different colors for each function
+    styles = ['o', '+', '*', 'x', 'square', '^', 'v', ">", "<", "pentagram", "hexagram"];
     
     for i = 1:numFunctions
-        y = tableData{:, i+1}; % Subsequent columns as y-values
+        y = tableData(:, i+1); % Subsequent columns as y-values
         
         % Create log-log plot using set(gca) method :cite[2]
-        plot(x, y, 'LineWidth', 1.5, 'Color', colors(i, :), ...
-             'DisplayName', sprintf('Function %d', i));
+        plot(x, y, sprintf('-%s', styles(i)), 'LineWidth', 1.5, 'Color', colors(i, :), ...
+             'DisplayName', sprintf('%s', funcNames(i+1)));
     end
     
-    % Set logarithmic scale for both axes :cite[2]:cite[6]
-    set(gca, 'XScale', 'log', 'YScale', 'log');
+    % Set logarithmic scale for both axes
+    xscale log;
+    yscale log;
     
-    % Alternative method for R2023b and newer (uncomment if needed):
-    % xscale log;
-    % yscale log;
-    
-    % Set axis limits if provided :cite[3]
+    % Set axis limits if provided
     if exist('xLimits', 'var') && ~isempty(xLimits)
         xlim(xLimits);
     end
@@ -476,9 +474,9 @@ function plotTableFunctionsLogLog(tableData, xLimits, yLimits)
     end
     
     % Labels and formatting
-    xlabel('x (log scale)', 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel('y (log scale)', 'FontSize', 12, 'FontWeight', 'bold');
-    title('Multiple Functions in Log-Log Scale', 'FontSize', 14);
+    xlabel('precision', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel('function calculations', 'FontSize', 12, 'FontWeight', 'bold');
+    title('Algorithms speed', 'FontSize', 14);
     
     legend('show', 'Location', 'best');
     grid on;
@@ -497,9 +495,12 @@ func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
 
+Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
 N = [];
-for i = 1:7
-    target_precision = 10^(-i);
+min_pow = -9;
+max_pow = -1;
+for i = min_pow:max_pow
+    target_precision = 10^(i);
     [x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
     [x, y, Ndigit] = digitwise(f, start, stop, target_precision);
     [x, y, Ndich] = dichotomy(f, start, stop, target_precision);
@@ -511,9 +512,10 @@ for i = 1:7
     [x, y, Nnr] = Newton_Raphson(f, (start + stop) / 2, target_precision);
     [x, y, Nmarq] = Marquardt(f, (start + stop) / 2, target_precision);
 
-    N = [N;[Nbrute, Ndigit, Ndich, Ngold, Nparab, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
+    N = [N;[target_precision, Nbrute, Ndigit, Ndich, Ngold, Nparab, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
 end
-N
+
+plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [0, 10^2])
 % f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
 % plotSingleFunction(f, -4, 4);
 % syms func(x);
