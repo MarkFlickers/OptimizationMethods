@@ -18,7 +18,7 @@ DERIVATIVE_TYPE_LEFT    = 1;
 DERIVATIVE_TYPE_RIGHT   = 2;
 DERIVATIVE_TYPE_CENTRAL = 3;
 
-derivative_type = DERIVATIVE_TYPE_DIFF;
+derivative_type = DERIVATIVE_TYPE_CENTRAL;
 
 if derivative_type == DERIVATIVE_TYPE_DIFF
     FIRST_DERIVATIVE_COST = 1;
@@ -368,6 +368,35 @@ function [xmin, fmin, func_calculations] = Marquardt(func, start, target_precisi
     func_calculations = func_calculations + 1;
 end
 
+function [range_start, range_end] = FindConvergenceInterval(f, start, minimizingFunc, target_precision)
+    
+    prevapprox = start;
+    newapprox = -100;
+    while(abs(prevapprox - newapprox) > target_precision)
+        [x, y] = minimizingFunc(f, newapprox, target_precision);
+        if abs(x) < 1e-2
+            prevapprox = newapprox;
+            newapprox = newapprox * 2;
+        else
+            newapprox = (newapprox + prevapprox) / 2;
+        end
+    end
+    range_start = prevapprox;
+
+    prevapprox = start;
+    newapprox = 100;
+    while(abs(prevapprox - newapprox) > target_precision)
+        [x, y] = minimizingFunc(f, newapprox, target_precision);
+        if abs(x) < 1e-2
+            prevapprox = newapprox;
+            newapprox = newapprox * 2;
+        else
+            newapprox = (newapprox + prevapprox) / 2;
+        end
+    end
+    range_end = prevapprox;
+end
+
 function [xmin, fmin, func_calculations] = Polyline(func, start, stop, target_precision)
     L = abs(double(get_lipschitz_const(func, start, stop, target_precision)));
     f_a = func(start);
@@ -403,8 +432,8 @@ function plotSingleFunction(f, start, stop)
     plot(x, y, 'b-', 'LineWidth', 1.5);
     
     % Axis labels with formatting
-    xlabel('x-axis', 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel('y-axis', 'FontSize', 12, 'FontWeight', 'bold');
+    xlabel('x', 'FontSize', 18, 'FontWeight', 'bold');
+    ylabel('f(x)', 'FontSize', 18, 'FontWeight', 'bold');
     functext = func2str(f);
     functext = erase(functext, '.');
     titletext = sprintf('Graph of f(x) = %s on interval [%d:%d]', functext(5:end), start, stop);
@@ -463,7 +492,7 @@ function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     
     % Set logarithmic scale for both axes
     xscale log;
-    yscale log;
+    %yscale log;
     
     % Set axis limits if provided
     if exist('xLimits', 'var') && ~isempty(xLimits)
@@ -474,8 +503,8 @@ function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     end
     
     % Labels and formatting
-    xlabel('precision', 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel('function calculations', 'FontSize', 12, 'FontWeight', 'bold');
+    xlabel('Precision', 'FontSize', 18, 'FontWeight', 'bold');
+    ylabel('Function calculations', 'FontSize', 18, 'FontWeight', 'bold');
     title('Algorithms speed', 'FontSize', 14);
     
     legend('show', 'Location', 'best');
@@ -494,52 +523,40 @@ syms func(x);
 func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
-
-Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
-N = [];
-min_pow = -9;
-max_pow = -1;
-for i = min_pow:max_pow
-    target_precision = 10^(i);
-    [x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
-    [x, y, Ndigit] = digitwise(f, start, stop, target_precision);
-    [x, y, Ndich] = dichotomy(f, start, stop, target_precision);
-    [x, y, Ngold] = goldenratio(f, start, stop, target_precision);
-    [x, y, Nparab] = parabolic(f, start, stop, target_precision);
-    [x, y, Nmid] = middlepoint(f, start, stop, target_precision);
-    [x, y, Nchord] = chord(f, start, stop, target_precision);
-    [x, y, Nnewt] = Newton(f, (start + stop) / 2, target_precision);
-    [x, y, Nnr] = Newton_Raphson(f, (start + stop) / 2, target_precision);
-    [x, y, Nmarq] = Marquardt(f, (start + stop) / 2, target_precision);
-
-    N = [N;[target_precision, Nbrute, Ndigit, Ndich, Ngold, Nparab, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
-end
-
-plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [0, 10^2])
-% f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
-% plotSingleFunction(f, -4, 4);
-% syms func(x);
-% func(x) = f;
-% df = matlabFunction(diff(func, x));
-% ddf = matlabFunction(diff(func, x, 2));
-% start_flag = 0;
-% step = 0.01;
-% for start = -2:step:2
-%     [x, y] = Newton(f, start, target_precision);
-%     if abs(x) < 1e-2
-%         if start_flag == 0
-%             range_start = start;
-%             start_flag = 1;
-%         end
-%     elseif start_flag == 1
-%         range_end = start - step;
-%         start_flag = 0;
-%         break
-%     end
-% end
+% Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
+% %Names = ["precision", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
+% N = [];
+% min_pow = -9;
+% max_pow = -1;
+% for i = min_pow:max_pow
+%     target_precision = 10^(i);
+%     [x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
+%     [x, y, Ndigit] = digitwise(f, start, stop, target_precision);
+%     [x, y, Ndich] = dichotomy(f, start, stop, target_precision);
+%     [x, y, Ngold] = goldenratio(f, start, stop, target_precision);
+%     [x, y, Nparab] = parabolic(f, start, stop, target_precision);
+%     [x, y, Nmid] = middlepoint(f, start, stop, target_precision);
+%     [x, y, Nchord] = chord(f, start, stop, target_precision);
+%     [x, y, Nnewt] = Newton(f, (start + stop) / 2, target_precision);
+%     [x, y, Nnr] = Newton_Raphson(f, (start + stop) / 2, target_precision);
+%     [x, y, Nmarq] = Marquardt(f, (start + stop) / 2, target_precision);
 % 
-% range_start, range_end
+%     N = [N;[target_precision, Nbrute, Ndigit, Ndich, Ngold, Nparab, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
+%     %N = [N;[target_precision, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
+% end
+% %plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [0, 10^9])
+% plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [1, 80])
 
+f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
+plotSingleFunction(f, -4, 4);
+syms func(x);
+func(x) = f;
+df = matlabFunction(diff(func, x));
+ddf = matlabFunction(diff(func, x, 2));
+target_precision = 0.001;
+[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton, target_precision);
+[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton_Raphson, target_precision);
+[range_start, range_end] = FindConvergenceInterval(f, 0, @Marquardt, target_precision);
 
 f = @(x) cos(x)./(x.^2);
 start = 1;
@@ -549,7 +566,7 @@ syms func(x);
 func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
-L = abs(double(get_lipschitz_const(f, start, stop, 0.000001)));
+L = abs(double(get_lipschitz_const(f, start, stop, 0.000001)))
 N1 = [];
 for i = 1:7
     target_precision = 10^(-i);
@@ -561,7 +578,13 @@ for i = 1:7
     xmin = arg(ind);
     N1 = [N1 n];
 end
-
+N2 = [];
+for i = 1:7
+    target_precision = 10^(-i);
+    [x, y, Npoly] = Polyline(f, start, stop, target_precision);
+    N2 = [N2 Npoly];
+end
+N = [N1;N2]
 
 f = @(x) 1/10 .* x + 2.*sin(4.*x);
 start = 0;
@@ -571,12 +594,22 @@ syms func(x);
 func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
-
+L = abs(double(get_lipschitz_const(f, start, stop, 0.000001)))
+N1 = [];
+for i = 1:7
+    target_precision = 10^(-i);
+    n = ceil(L * (stop - start) / (target_precision * 2));
+    %[x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
+    arg = linspace(start, stop, n);
+    y = f(arg);
+    [fmin, ind] = min(y);
+    xmin = arg(ind);
+    N1 = [N1 n];
+end
 N2 = [];
 for i = 1:7
     target_precision = 10^(-i);
     [x, y, Npoly] = Polyline(f, start, stop, target_precision);
     N2 = [N2 Npoly];
 end
-
 N = [N1;N2]
