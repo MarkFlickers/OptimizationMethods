@@ -99,14 +99,14 @@ function [xmin, fmin, func_calculations] = bruteforce(f, start, stop, precision)
     xmin = arg(ind);
 end
 
-function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision)
+function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, k)
     func_calculations = 0;
     delta = 1;
     x = start;
     direction = 1;
     yprev = 0;
     while delta > precision
-        delta = delta / 4;
+        delta = delta / k;
         yprev = f(start);
         func_calculations = func_calculations + 1;
         x = x + delta*direction;
@@ -398,7 +398,7 @@ function [range_start, range_end] = FindConvergenceInterval(f, start, minimizing
 end
 
 function [xmin, fmin, func_calculations] = Polyline(func, start, stop, target_precision)
-    L = abs(double(get_lipschitz_const(func, start, stop, target_precision)));
+    L = abs(double(get_lipschitz_const(func, start, stop, target_precision))) - 1;
     f_a = func(start);
     f_b = func(stop);
     func_calculations = 2;
@@ -491,7 +491,7 @@ function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     end
     
     % Set logarithmic scale for both axes
-    xscale log;
+    %xscale log;
     %yscale log;
     
     % Set axis limits if provided
@@ -547,6 +547,18 @@ ddf = matlabFunction(diff(func, x, 2));
 % %plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [0, 10^9])
 % plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [1, 80])
 
+N = [];
+Names = ["k", "digitwise"];
+target_precision = 1e-6;
+start_k = 2;
+stop_k = 10;
+for k = start_k:stop_k
+    %Names = [Names, sprintf("k = %d", k)];
+    [x, y, Ndigit] = digitwise(f, start, stop, target_precision, k);
+    N = [N;[k, Ndigit]];
+end
+plotTableFunctionsLogLog(Names, N, [start_k, stop_k], [1, 160])
+
 f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
 plotSingleFunction(f, -4, 4);
 syms func(x);
@@ -554,9 +566,9 @@ func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
 target_precision = 0.001;
-[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton, target_precision);
-[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton_Raphson, target_precision);
-[range_start, range_end] = FindConvergenceInterval(f, 0, @Marquardt, target_precision);
+%[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton, target_precision);
+%[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton_Raphson, target_precision);
+%[range_start, range_end] = FindConvergenceInterval(f, 0, @Marquardt, target_precision);
 
 f = @(x) cos(x)./(x.^2);
 start = 1;
@@ -566,7 +578,7 @@ syms func(x);
 func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
-L = abs(double(get_lipschitz_const(f, start, stop, 0.000001)))
+L = abs(double(get_lipschitz_const(f, start, stop, 0.000001))) + 1
 N1 = [];
 for i = 1:7
     target_precision = 10^(-i);
@@ -581,7 +593,7 @@ end
 N2 = [];
 for i = 1:7
     target_precision = 10^(-i);
-    [x, y, Npoly] = Polyline(f, start, stop, target_precision);
+    [x, y, Npoly] = Polyline(f, start, stop, target_precision)
     N2 = [N2 Npoly];
 end
 N = [N1;N2]
@@ -594,7 +606,7 @@ syms func(x);
 func(x) = f;
 df = matlabFunction(diff(func, x));
 ddf = matlabFunction(diff(func, x, 2));
-L = abs(double(get_lipschitz_const(f, start, stop, 0.000001)))
+L = abs(double(get_lipschitz_const(f, start, stop, 0.000001))) + 1
 N1 = [];
 for i = 1:7
     target_precision = 10^(-i);
@@ -609,7 +621,7 @@ end
 N2 = [];
 for i = 1:7
     target_precision = 10^(-i);
-    [x, y, Npoly] = Polyline(f, start, stop, target_precision);
+    [x, y, Npoly] = Polyline(f, start, stop, target_precision)
     N2 = [N2 Npoly];
 end
 N = [N1;N2]
