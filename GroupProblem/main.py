@@ -58,19 +58,16 @@ class Tree:
         return TreeState
 
 class Node:
-
     id_iter = itertools.count()
 
-    def __init__(self, Tree, parent_diff):
-        #self.TreeState = tuple(TreeState)  # Дерево этого узла
-        self.Tree = Tree
+    def __init__(self, Tree, parent_diff): 
+        self.Tree = Tree    # Состояние этого узла
         self.g = 0  # Расстояние от начального узла до текущего узла
         self.h = 0  # Примерное расстояние от текущего узла до конечного узла
         self.f = 0  # Сумма g и h
         self.parent = None  # Родительский узел, используется для восстановления пути
         self.parent_diff = parent_diff # Изменение в родительском узле для получения этого узла
         self.id = next(self.id_iter)
-        #self.parent_diff = (tuple(l) for l in parent_diff)
 
     # Переопределяем оператор сравнения для сравнения узлов
     def __lt__(self, other):
@@ -109,31 +106,6 @@ def move_bird(TreeState, src_branch_number, dst_branch_number):
             pass
         return [TreeState, [[src_branch_number, src_branch], [dst_branch_number, dst_branch]]]
 
-
-# def get_final_tree(OriginTree):
-#     Types = {}
-#     branchlen = len(DATA[0])
-#     branchamount = len(DATA)
-#     for branch in DATA:
-#         for bird in branch:
-#             if bird in Types:
-#                 Types[bird] += 1
-#             else:
-#                 Types[bird] = 1
-
-#     FinalTree = []
-#     for bird, amount in Types.items():
-#         if bird == 0:
-#             continue
-#         while True:
-#             FinalTree.append([bird] * (amount % (branchlen + 1)))
-#             amount -= branchlen
-#             if amount <= 0:
-#                 FinalTree[-1] += ([0] * (-amount))
-#                 break
-#     FinalTree += [[0] * branchlen] * (branchamount - len(FinalTree))
-#     return FinalTree
-
 def get_neighbors(current_node):
     neighbors = []
     CurrentTree = current_node.Tree.get_TreeState()
@@ -145,7 +117,7 @@ def get_neighbors(current_node):
             [NewTree, parent_diff] = result
             #NewTree += [[0] * current_node.Tree.branch_len for _ in range(current_node.Tree.amount_of_empty_branches - 1)]
             neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
-            if neighbor.id in [469, 2844, 16040]:
+            if neighbor.id in [469, 2845, 16040]:
                 pass
             CurrentTree = current_node.Tree.get_TreeState()
             neighbors.append(neighbor)
@@ -199,6 +171,9 @@ def astar(startTreeState):
                     nfo.h = nfo.Tree.unperfectness
                     nfo.f = nfo.g + nfo.h
                     nfo.parent = current_node
+                    # Раз поменялся parent, то должен поменяться и parent_diff. КАК?
+                    # А вот так:
+                    nfo.parent_diff = neighbor.parent_diff
                     # Обновляем приоритет соседнего узла в очереди с приоритетами
                     heapq.heapify(open_list)
             else:
@@ -216,39 +191,10 @@ def astar(startTreeState):
 DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
 #DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
 Orig = Tree(DATA)
-print(Orig.branches, Orig.unperfectness)
+#print(Orig.branches, Orig.unperfectness)
 
-#TargetState = get_final_tree(DATA)
 
 print(astar(DATA))
-#IntermediateState = deepcopy(TargetState)
-#print(IntermediateState)
 
-#Assemble Origin DATA
-# for branch in DATA:
-#     for ind, intermediate_branch in enumerate(IntermediateState):
-#         if intermediate_branch == branch[:len(intermediate_branch)]:
-#             selected_branch_ind = ind
-#             break
-#         if intermediate_branch[0] == 0:
-#             selected_branch_ind = ind
-#             break
-#     while branch != IntermediateState[selected_branch_ind]:
-#         if IntermediateState[selected_branch_ind][0] == 0:
-#             IntermediateState[selected_branch_ind] = [branch[0]]
-#             a = [item[0] for item in IntermediateState]
-#             ind = a.index(branch[0])
-#             IntermediateState[ind].pop()
-#             if not IntermediateState[ind]:
-#                 IntermediateState[ind] = [0] * branchlen
-#         else:
-#             i = len(IntermediateState[selected_branch_ind])
-#             IntermediateState[selected_branch_ind].append(branch[i])
-#             a = [item[0] for item in IntermediateState]
-#             ind = a.index(branch[i])
-#             IntermediateState[ind].pop()
-#             if not IntermediateState[ind]:
-#                 IntermediateState[ind] = [0] * branchlen
-#         print(IntermediateState)
         
 

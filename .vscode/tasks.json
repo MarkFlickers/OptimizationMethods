@@ -1,0 +1,74 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+            "label": "cProfile File",
+            "group": "test",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "command": "python",
+            "args": [
+                "-m",
+                "cProfile",
+                "-s",
+                "cumulative",
+                "${relativeFile}"
+            ],
+            "options": {
+                "statusbar": {
+                    "label": "cProfile File",
+                    "color": "#34f104",
+                    "icon": {
+                        "id": "bracket"
+                    }
+                    //"backgroundColor": "statusBarItem.warningBackground"
+                }
+            }
+        },
+        {
+            "label": "Line Profile File",
+            "group": "test",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "command": "kernprof",
+            "args": [
+                "-v",
+                "${relativeFile}",
+                "-o",
+                "${relativeFile}.lprof"
+            ],
+            "options": {
+                "statusbar": {
+                    "label": "Line Profile File",
+                    "color": "#c2f800",
+                    "icon": {
+                        "id": "bracket"
+                    }
+                    //"backgroundColor": "statusBarItem.warningBackground"
+                }
+            }
+        },
+        {
+            "label": "Heat Profile File",
+            "group": "test",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "command": "pyheat",
+            "args": [
+                "${relativeFile}",
+                "--out",
+                "heatmap.png"
+            ],
+            "options": {
+                "statusbar": {
+                    "label": "Heat Profile File",
+                    "color": "#f18204",
+                    "icon": {
+                        "id": "bracket"
+                    }
+                    //"backgroundColor": "statusBarItem.warningBackground"
+                }
+            }
+        },
+	]
+}
