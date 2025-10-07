@@ -98,6 +98,47 @@ class Node:
     def __hash__(self):
         return self._hash    
 
+class PriorityQueue:
+    #Оптимизированная очередь с приоритетом без частого heapify
+    def __init__(self):
+        self.heap = []
+        self.entry_finder = {}
+        self.REMOVED = '<removed-task>'
+        self.counter = itertools.count()
+
+    def add(self, node):
+        #Add a new node or update the priority of an existing node
+        if hash(node) in self.entry_finder:
+            self.remove(node)
+        count = next(self.counter)
+        entry = [node, count, node.f]
+        #entry = [node]
+        self.entry_finder[hash(node)] = entry
+        heapq.heappush(self.heap, entry)
+        #heapq.heappush(self.heap, node)
+
+    def remove(self, node):
+        #'Mark an existing node as REMOVED.  Raise KeyError if not found.
+        entry = self.entry_finder.pop(hash(node))
+        entry[-1] = self.REMOVED
+        #entry = self.REMOVED
+
+    def pop(self):
+        #'Remove and return the lowest priority node. Raise KeyError if empty.
+        while self.heap:
+            node, count, f = heapq.heappop(self.heap)
+            #node = heapq.heappop(self.heap)[0]
+            if node is not self.REMOVED:
+                del self.entry_finder[hash(node)]
+                return node
+        raise KeyError('pop from an empty priority queue')
+
+    def __contains__(self, node):
+        return hash(node) in self.entry_finder
+
+    def __len__(self):
+        return len(self.entry_finder)
+
 @lru_cache(maxsize=4096)
 def move_bird_cached(TreeState_tuple, src_branch_number, dst_branch_number):
     TreeState = [list(branch) for branch in TreeState_tuple]
@@ -143,53 +184,36 @@ def move_bird(TreeState, src_branch_number, dst_branch_number):
     return [new_state, moves]
 
 def get_neighbors(current_node):
-    # neighbors = []
-    # CurrentTree = current_node.Tree.get_TreeState()
-    # #current_hash = hash(current_node.Tree)
-    
-    # # Предварительно собираем информацию о ветках
-    # non_empty_branches = []
-    # empty_branches = []
-    
-    # for i, branch in enumerate(CurrentTree):
-    #     if branch[0] == 0:
-    #         empty_branches.append(i)
-    #     else:
-    #         non_empty_branches.append(i)
-    
-    # # Ограничиваем количество проверяемых перемещений
-    # for src_idx in non_empty_branches:
-    #     # Пробуем сначала перемещения в пустые ветки (обычно более выгодны)
-    #     for dst_idx in empty_branches:
-    #         if src_idx == dst_idx:
-    #             continue
-    #         result = move_bird(CurrentTree, src_idx, dst_idx)
-    #         if result is not None:
-    #             NewTree, parent_diff = result
-    #             neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
-    #             neighbors.append(neighbor)
-        
-    #     # Затем перемещения между непустыми ветками
-    #     for dst_idx in non_empty_branches:
-    #         if src_idx >= dst_idx:  # Избегаем дублирующих проверок
-    #             continue
-    #         result = move_bird(CurrentTree, src_idx, dst_idx)
-    #         if result is not None:
-    #             NewTree, parent_diff = result
-    #             neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
-    #             neighbors.append(neighbor)
-    
-    # return neighbors
     neighbors = []
     CurrentTree = current_node.Tree.get_TreeState()
-    for i in range(len(CurrentTree)):
-        # Пропускаем полностью пустые ветки как источник
-        if CurrentTree[i][0] == 0:
-            continue
-        for j in range(len(CurrentTree)):
-            if i == j:
+    
+    # Предварительно собираем информацию о ветках
+    non_empty_branches = []
+    empty_branches = []
+    
+    for i, branch in enumerate(CurrentTree):
+        if branch[0] == 0:
+            empty_branches.append(i)
+        else:
+            non_empty_branches.append(i)
+    
+    # Ограничиваем количество проверяемых перемещений
+    for src_idx in non_empty_branches:
+        # Пробуем сначала перемещения в пустые ветки (обычно более выгодны)
+        for dst_idx in empty_branches:
+            if src_idx == dst_idx:
                 continue
-            result = move_bird(CurrentTree, i, j)
+            result = move_bird(CurrentTree, src_idx, dst_idx)
+            if result is not None:
+                NewTree, parent_diff = result
+                neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
+                neighbors.append(neighbor)
+        
+        # Затем перемещения между непустыми ветками
+        for dst_idx in non_empty_branches:
+            if src_idx == dst_idx:  # Избегаем дублирующих проверок
+                continue
+            result = move_bird(CurrentTree, src_idx, dst_idx)
             if result is not None:
                 NewTree, parent_diff = result
                 neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
@@ -202,9 +226,13 @@ def astar(startTreeState):
     start_node = Node(Tree(startTreeState), [])
     start_node.h = start_node.Tree.unperfectness
     start_node.f = start_node.g + start_node.h
+
     # Инициализируем очередь с приоритетами
+    #open_list = PriorityQueue()
+    #open_list.add(start_node)
     open_list = []
     heapq.heappush(open_list, start_node)
+
 
     # Используем словарь для быстрого поиска узлов по состоянию
     open_dict = {hash(start_node): start_node}
@@ -215,6 +243,7 @@ def astar(startTreeState):
     # Пока очередь с приоритетами не пуста
     while open_list:
         # Извлекаем узел с наименьшей оценкой f
+        #current_node = open_list.pop()
         current_node = heapq.heappop(open_list)
         current_hash = hash(current_node)
         nodes_processed += 1
@@ -234,6 +263,7 @@ def astar(startTreeState):
 
         # Добавляем текущий узел в множество посещенных узлов
         closed_set.add(current_hash)
+        #if current_hash in open_dict:
         del open_dict[current_hash]
 
         # Получаем соседние узлы
@@ -265,19 +295,27 @@ def astar(startTreeState):
                     # А вот так:
                     existing_node.parent_diff = neighbor.parent_diff
                     # Обновляем приоритет соседнего узла в очереди с приоритетами
+                    #open_list.add(existing_node)  # PriorityQueue сама обновит приоритет
                     heapq.heapify(open_list)
             else:
                 # Иначе добавляем соседний узел в очередь с приоритетами
+                #open_list.add(neighbor)
                 heapq.heappush(open_list, neighbor)
                 open_dict[neighbor_hash] = neighbor
 
+    print(f"Nodes processed: {nodes_processed}")
     # Если конечный узел недостижим, возвращаем None
     return None
 
-# DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2]] + [[0, 0, 0, 0]] * 31
- DATA = [[1, 2, 3, 4, 5], [4, 2, 3, 1, 5], [1, 2, 4, 3, 5], [3, 4, 1, 2, 5], [3, 5, 1, 4, 2]] + [[0, 0, 0, 0, 0]] * 31
-# DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
-Orig = Tree(DATA)
+#DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2]] + [[0, 0, 0, 0]] * 31
+#DATA = [[1, 2, 3, 4, 5], [4, 2, 3, 1, 5], [1, 2, 4, 3, 5], [3, 4, 1, 2, 5], [3, 5, 1, 4, 2]] + [[0, 0, 0, 0, 0]] * 31
+DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[2, 2, 1], [5, 4, 3], [5, 3, 6], [9, 8, 7], [9, 10, 4], [8, 11, 6], [13, 9, 12], [13, 3, 1], [13, 6, 5], [1, 14, 7], [10, 12, 4], [14, 8, 14], [12, 10, 11], [15, 2, 11], [7, 15, 15], [0, 0, 0], [0, 0, 0]]
+#DATA = [[2, 3, 2, 1], [1, 3, 5, 4], [1, 6, 4, 2], [1, 7, 6, 7], [8, 8, 6, 5], [8, 3, 2, 4], [8, 7, 5, 5], [4, 3, 7, 6], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[4, 3, 2, 1], [1, 6, 3, 5], [1, 8, 7, 7], [1, 10, 5, 9], [6, 10, 6, 8], [11, 2, 11, 2], [13, 6, 11, 4], [13, 12, 4, 8], [12, 11, 13, 10], [12, 10, 4, 13], [12, 9, 5, 7], [3, 8, 9, 2], [9, 3, 5, 7], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[9, 15, 14, 11], [9, 6, 3, 14], [4, 8, 8, 12], [8, 11, 14, 12], [8, 6, 10, 12], [13, 7, 13, 6], [11, 4, 1, 4], [11, 13, 15, 14], [1, 10, 7, 10], [10, 9, 3, 15], [3, 4, 1, 1], [7, 15, 9, 12], [6, 7, 3, 13], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[8, 7, 10, 7, 10], [13, 6, 1, 3, 11], [13, 6, 7, 15, 1], [10, 8, 11, 1, 8], [14, 13, 14, 13, 3], [14, 15, 8, 12, 1], [12, 3, 8, 15, 11], [15, 12, 12, 12, 10], [3, 14, 1, 6, 10], [7, 13, 3, 6, 11], [7, 14, 6, 15, 11], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+#DATA = [[4, 4, 2, 3, 2, 1], [4, 3, 3, 1, 5, 3], [1, 2, 4, 3, 5, 5], [1, 6, 3, 6, 6, 6], [3, 5, 6, 5, 6, 5], [2, 3, 2, 2, 3, 6], [2, 3, 5, 1, 5, 3], [2, 2, 5, 3, 2, 2], [2, 5, 4, 5, 6, 6], [6, 6, 4, 1, 5, 6], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
 
 print(astar(DATA))
 
