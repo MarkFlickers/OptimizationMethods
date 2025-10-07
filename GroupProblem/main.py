@@ -1,7 +1,9 @@
 import heapq  # Модуль для работы с очередью с приоритетами
 import itertools
+from functools import lru_cache
 
 class Branch:
+    __slots__ = ('birds', 'unfillness', '_hash')  # Уменьшаем использование памяти
     def __init__(self, birds_configuration):
         self.birds = self.parse_birds(birds_configuration)
         self.unfillness = self.measure_unfillness()
@@ -23,10 +25,9 @@ class Tree:
         self.branches = self.parse_non_empty_Branches(TreeState)
         self.branches_avaliable = len(self.branches) + (self.amount_of_empty_branches > 0)
         self.unperfectness = sum(branch.unfillness for branch in self.branches)
-        # Предварительно вычисляем хэш для ускорения
-        self._hash = hash(tuple([branch.birds for branch in self.branches]))       
+        # Предварительно вычисляем хэш для ускорения  
         # Можно предварительно отсортировать для отбрасывания состояний с одинаковой конфигурацией но разными номерами веток 
-        #self._hash = hash(tuple(branch.birds for branch in sorted(self.branches, key=lambda x: x.birds)))
+        self._hash = hash(tuple(branch.birds for branch in sorted(self.branches, key=lambda x: x.birds)))
 
     def __eq__(self, other):
         if len(self.branches) != len(other.branches):
@@ -203,11 +204,10 @@ def astar(startTreeState):
     # Если конечный узел недостижим, возвращаем None
     return None
 
-DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-#DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
+DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2]] + [[0, 0, 0, 0]] * 31
+# DATA = [[1, 2, 3, 4, 5], [4, 2, 3, 1, 5], [1, 2, 4, 3, 5], [3, 4, 1, 2, 5], [3, 5, 1, 4, 2]] + [[0, 0, 0, 0, 0]] * 31
+# DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
 Orig = Tree(DATA)
-#print(Orig.branches, Orig.unperfectness)
-
 
 print(astar(DATA))
 

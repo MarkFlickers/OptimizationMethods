@@ -10,6 +10,8 @@
             "args": [
                 "-m",
                 "cProfile",
+                //"-o",
+                //"${relativeFile}.cprof",
                 "-s",
                 "cumulative",
                 "${relativeFile}"
@@ -63,6 +65,26 @@
                 "statusbar": {
                     "label": "Heat Profile File",
                     "color": "#f18204",
+                    "icon": {
+                        "id": "bracket"
+                    }
+                    //"backgroundColor": "statusBarItem.warningBackground"
+                }
+            }
+        },
+        {
+            "label": "Open Snakeviz",
+            "group": "test",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "command": "snakeviz",
+            "args": [
+                "${relativeFile}.cprof"
+            ],
+            "options": {
+                "statusbar": {
+                    "label": "Open Snakeviz",
+                    "color": "#04e9f1",
                     "icon": {
                         "id": "bracket"
                     }
