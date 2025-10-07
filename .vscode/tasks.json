@@ -10,8 +10,8 @@
             "args": [
                 "-m",
                 "cProfile",
-                //"-o",
-                //"${relativeFile}.cprof",
+                "-o",
+                "${relativeFile}.cprof",
                 "-s",
                 "cumulative",
                 "${relativeFile}"
