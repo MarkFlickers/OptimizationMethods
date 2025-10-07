@@ -11,7 +11,6 @@ class Branch:
 
     def measure_unfillness(self):
         bird_types = set(self.birds)
-        #bird_types.discard(0)
         return len(self.birds) - max(self.birds.count(bird_type) for bird_type in bird_types)
     
     def __eq__(self, other):
@@ -36,12 +35,9 @@ class Tree:
         branches = list()
         for branch_state in TreeState:
             branch = Branch(branch_state)
-            # if (is_empty_added_flag == 0) and (branch_state[0] == 0):
-            #     is_empty_added_flag = 1
             if branch.unfillness == 0:
                 continue
             branches.append(branch)
-        #if is_empty_added_flag == 0 and self.amount_of_empty_branches > 0:
         if self.amount_of_empty_branches > 0:
             branches.append(Branch([0] * self.branch_len))
         return tuple(branches)
@@ -81,7 +77,6 @@ class Node:
         return hash(self.Tree)    
 
 def move_bird(TreeState, src_branch_number, dst_branch_number):
-        #TreeState = oldTree.get_TreeState
         src_branch = TreeState[src_branch_number]
         dst_branch = TreeState[dst_branch_number]
         if src_branch[0] == 0:          # Если некого перемещать
@@ -100,10 +95,7 @@ def move_bird(TreeState, src_branch_number, dst_branch_number):
                 src_branch[-1], dst_branch[dst_branch.index(0)] = dst_branch[dst_branch.index(0)], src_branch[-1]
             else:
                 return None
-            
-        #newTree = Tree(TreeState)
-        if src_branch == [0, 0, 0, 0] and dst_branch == [1, 1, 0, 0] and src_branch_number == 4 and dst_branch_number == 0:
-            pass
+
         return [TreeState, [[src_branch_number, src_branch], [dst_branch_number, dst_branch]]]
 
 def get_neighbors(current_node):
@@ -117,8 +109,6 @@ def get_neighbors(current_node):
             [NewTree, parent_diff] = result
             #NewTree += [[0] * current_node.Tree.branch_len for _ in range(current_node.Tree.amount_of_empty_branches - 1)]
             neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
-            if neighbor.id in [469, 2845, 16040]:
-                pass
             CurrentTree = current_node.Tree.get_TreeState()
             neighbors.append(neighbor)
     return neighbors
