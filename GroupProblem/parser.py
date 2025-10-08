@@ -17,7 +17,7 @@ def test(branch_list, steps_list):
         else:
             i = -1
         if to_branch[1] == [0] * len(to_branch[1]):
-            print(f'Error in {step_ind} step: branch, to which element was moved, is empty')
+            print(f'Error in step {step_ind}: branch, to which element was moved, is empty')
             break
         if 0 in to_branch[1]:
             j = to_branch[1].index(0) - 1
@@ -31,9 +31,9 @@ def test(branch_list, steps_list):
             if branch in branch_list:
                 branch_list[branch_list.index(branch)] = to_branch[1].copy()
             else:
-                print(f'Error in {step_ind} step: there was not branch, to which element was moved')
+                print(f'Error in step {step_ind}: there was not branch, to which element was moved')
                 break
         else:
-            print(f'Error in {step_ind} step: there was not branch, from which element was moved')
+            print(f'Error in step {step_ind}: there was not branch, from which element was moved')
             break
     print(f'{len(steps_list)} steps were spent to solve the tree: {branch_list}')

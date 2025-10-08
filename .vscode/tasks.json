@@ -14,7 +14,7 @@
                 "${relativeFile}.cprof",
                 "-s",
                 "cumulative",
-                "${relativeFile}"
+                "${relativeFile}",
             ],
             "options": {
                 "statusbar": {
