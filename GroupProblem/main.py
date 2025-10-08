@@ -20,10 +20,17 @@ class Branch:
             return 0
         counts = Counter(birds_tuple)
         non_zero_counts = {k: v for k, v in counts.items() if k != 0}
+        #non_zero_counts = {k: v for k, v in counts.items()}
         if not non_zero_counts:
             return 0
         max_count = max(non_zero_counts.values())
         return len(birds_tuple) - max_count
+        a = len(birds_tuple) - max_count
+        #bird_types = set(birds_tuple)
+        #b = len(birds_tuple) - max(birds_tuple.count(bird_type) for bird_type in bird_types)
+        #if a != b:
+        #    pass
+        #return len(birds_tuple) - max(birds_tuple.count(bird_type) for bird_type in bird_types)
 
     def measure_unfillness(self):
         return Branch.measure_unfillness_cached(self.birds)
@@ -46,7 +53,7 @@ class Tree:
         # Предварительно вычисляем хэш для ускорения  
         # Можно предварительно отсортировать для отбрасывания состояний с одинаковой конфигурацией но разными номерами веток 
         self._hash = hash(tuple(branch.birds for branch in sorted(self.branches, key=lambda x: x.birds)))
-
+       
     def __eq__(self, other):
         if len(self.branches) != len(other.branches):
             return False
@@ -64,6 +71,10 @@ class Tree:
             branches.append(branch)
         if self.amount_of_empty_branches > 0:
             branches.append(Branch([0] * self.branch_len))
+            self.amount_of_empty_branches -= 1 
+        if self.amount_of_empty_branches < 0:
+            raise("Ветки в долг не даем!")
+
         return tuple(branches)
 
     def parse_empty_Branches(self, TreeState):
@@ -139,7 +150,7 @@ class PriorityQueue:
     def __len__(self):
         return len(self.entry_finder)
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=None)
 def move_bird_cached(TreeState_tuple, src_branch_number, dst_branch_number):
     TreeState = [list(branch) for branch in TreeState_tuple]
     src_branch = TreeState[src_branch_number]
@@ -206,7 +217,7 @@ def get_neighbors(current_node):
             result = move_bird(CurrentTree, src_idx, dst_idx)
             if result is not None:
                 NewTree, parent_diff = result
-                neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
+                neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches), parent_diff)
                 neighbors.append(neighbor)
         
         # Затем перемещения между непустыми ветками
@@ -216,7 +227,7 @@ def get_neighbors(current_node):
             result = move_bird(CurrentTree, src_idx, dst_idx)
             if result is not None:
                 NewTree, parent_diff = result
-                neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches - 1), parent_diff)
+                neighbor = Node(Tree(NewTree, current_node.Tree.amount_of_empty_branches), parent_diff)
                 neighbors.append(neighbor)
     
     return neighbors
@@ -225,7 +236,7 @@ def astar(startTreeState):
     # Создаем начальный и конечный узлы
     start_node = Node(Tree(startTreeState), [])
     start_node.h = start_node.Tree.unperfectness
-    start_node.f = start_node.g + start_node.h
+    start_node.f = start_node.g * 1 + start_node.h
 
     # Инициализируем очередь с приоритетами
     #open_list = PriorityQueue()
@@ -273,7 +284,7 @@ def astar(startTreeState):
         for neighbor in neighbors:
             neighbor.g = current_node.g + 1
             neighbor.h = neighbor.Tree.unperfectness
-            neighbor.f = neighbor.g + neighbor.h
+            neighbor.f = neighbor.g * 1 + neighbor.h
             neighbor.parent = current_node
             
             neighbor_hash = hash(neighbor)
@@ -289,7 +300,7 @@ def astar(startTreeState):
                 # Если новое расстояние до соседнего узла меньше, чем старое, обновляем значения g, h и f
                 if neighbor.g < existing_node.g:
                     existing_node.g = neighbor.g
-                    existing_node.f = existing_node.g + existing_node.h
+                    existing_node.f = existing_node.g * 1 + existing_node.h
                     existing_node.parent = current_node
                     # Раз поменялся parent, то должен поменяться и parent_diff. КАК?
                     # А вот так:
@@ -309,9 +320,11 @@ def astar(startTreeState):
 
 #DATA = [[1, 2, 3, 4], [4, 2, 3, 1], [1, 2, 4, 3], [3, 4, 1, 2]] + [[0, 0, 0, 0]] * 31
 #DATA = [[1, 2, 3, 4, 5], [4, 2, 3, 1, 5], [1, 2, 4, 3, 5], [3, 4, 1, 2, 5], [3, 5, 1, 4, 2]] + [[0, 0, 0, 0, 0]] * 31
-DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[1, 2, 1, 2], [2, 1, 2, 1], [0, 0, 0, 0], [0, 0, 0, 0]]
+#DATA = [[1, 2], [2, 1], [0, 0]]
+#DATA = [[1, 2, 2, 2, 3, 1], [2, 1, 3, 3, 1, 1], [2, 1, 3, 2, 3, 3], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
 #DATA = [[2, 2, 1], [5, 4, 3], [5, 3, 6], [9, 8, 7], [9, 10, 4], [8, 11, 6], [13, 9, 12], [13, 3, 1], [13, 6, 5], [1, 14, 7], [10, 12, 4], [14, 8, 14], [12, 10, 11], [15, 2, 11], [7, 15, 15], [0, 0, 0], [0, 0, 0]]
-#DATA = [[2, 3, 2, 1], [1, 3, 5, 4], [1, 6, 4, 2], [1, 7, 6, 7], [8, 8, 6, 5], [8, 3, 2, 4], [8, 7, 5, 5], [4, 3, 7, 6], [0, 0, 0, 0], [0, 0, 0, 0]]
+DATA = [[2, 3, 2, 1], [1, 3, 5, 4], [1, 6, 4, 2], [1, 7, 6, 7], [8, 8, 6, 5], [8, 3, 2, 4], [8, 7, 5, 5], [4, 3, 7, 6], [0, 0, 0, 0], [0, 0, 0, 0]]
 #DATA = [[4, 3, 2, 1], [1, 6, 3, 5], [1, 8, 7, 7], [1, 10, 5, 9], [6, 10, 6, 8], [11, 2, 11, 2], [13, 6, 11, 4], [13, 12, 4, 8], [12, 11, 13, 10], [12, 10, 4, 13], [12, 9, 5, 7], [3, 8, 9, 2], [9, 3, 5, 7], [0, 0, 0, 0], [0, 0, 0, 0]]
 #DATA = [[9, 15, 14, 11], [9, 6, 3, 14], [4, 8, 8, 12], [8, 11, 14, 12], [8, 6, 10, 12], [13, 7, 13, 6], [11, 4, 1, 4], [11, 13, 15, 14], [1, 10, 7, 10], [10, 9, 3, 15], [3, 4, 1, 1], [7, 15, 9, 12], [6, 7, 3, 13], [0, 0, 0, 0], [0, 0, 0, 0]]
 #DATA = [[8, 7, 10, 7, 10], [13, 6, 1, 3, 11], [13, 6, 7, 15, 1], [10, 8, 11, 1, 8], [14, 13, 14, 13, 3], [14, 15, 8, 12, 1], [12, 3, 8, 15, 11], [15, 12, 12, 12, 10], [3, 14, 1, 6, 10], [7, 13, 3, 6, 11], [7, 14, 6, 15, 11], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
