@@ -1,0 +1,10 @@
+﻿  main.cpp
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\limits.h(70,5): warning C4668: "__STDC_WANT_SECURE_LIB__" не задано как макроопределение препроцессора, замена на "0" для "#if/#elif"
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\xmemory(164,5): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\xmemory(174,5): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(106,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(361,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(377,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
+C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(24,9): warning C4820: "Tree": отбивка размером "4" байт добавлена после данные-член "Tree::amount_of_empty_branches"
+C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(45,9): warning C4820: "Node": отбивка размером "4" байт добавлена после данные-член "Node::g"
+  Birds.vcxproj -> C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\x64\Debug\Birds.exe
