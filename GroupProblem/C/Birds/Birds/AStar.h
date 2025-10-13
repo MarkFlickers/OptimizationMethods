@@ -9,11 +9,11 @@ public:
 	size_t unfillness;
 
 	Branch(void);
-	Branch(std::vector<int> birds_configuration);
+	Branch(std::vector<int> &birds_configuration);
 	bool operator == (const Branch& other) const;
 
 private:
-	size_t measure_unfillness(std::vector<int> birds_configuration);
+	size_t measure_unfillness(std::vector<int> &birds_configuration);
 };
 
 class Tree
@@ -26,15 +26,15 @@ public:
 	size_t _hash;
 
 	Tree(void);
-	Tree(std::vector<std::vector<int>> TreeState, unsigned long empty_branches = 0);
+	Tree(std::vector<std::vector<int>> &TreeState, unsigned long empty_branches = 0);
 	bool operator == (const Tree& other) const;
 	std::vector<std::vector<int>> get_TreeState(void);
 
 private:
-	unsigned long parse_empty_branches(std::vector<std::vector<int>> TreeState);
-	std::vector<Branch> parse_non_empty_branches(std::vector<std::vector<int>> TreeState);
+	unsigned long parse_empty_branches(std::vector<std::vector<int>> &TreeState);
+	std::vector<Branch> parse_non_empty_branches(std::vector<std::vector<int>> &TreeState);
 	size_t measure_tree_unperfectness(void);
-	size_t get_hash(std::vector<std::vector<int>> tree);
+	size_t get_hash(std::vector<std::vector<int>> &tree);
 };
 
 class Node
@@ -55,4 +55,4 @@ public:
 	bool operator > (const Node& other) const;
 };
 
-int AStar(std::vector<std::vector<int>> startTreeState);
+int AStar(std::vector<std::vector<int>>& startTreeState);

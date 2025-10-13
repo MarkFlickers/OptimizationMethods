@@ -46,7 +46,7 @@ Branch::Branch(void)
 	unfillness = 0;
 }
 
-Branch::Branch(std::vector<int> birds_configuration)
+Branch::Branch(std::vector<int> &birds_configuration)
 {
 	birds = birds_configuration;
 	unfillness = measure_unfillness(birds);
@@ -57,7 +57,7 @@ bool Branch::operator == (const Branch& other) const
 	return (birds == other.birds);
 }
 
-size_t Branch::measure_unfillness(std::vector<int> birds_configuration)
+size_t Branch::measure_unfillness(std::vector<int> &birds_configuration)
 {
 	if(birds_configuration[0] == 0)
 	{
@@ -80,10 +80,11 @@ Tree::Tree(void)
 	Branches = {Branch()};
 	unperfectness = 0;
 	branch_len = 0;
-	_hash = get_hash({{0}});
+	std::vector<std::vector<int>> vec = { {0} };
+	_hash = get_hash(vec);
 }
 
-Tree::Tree(std::vector<std::vector<int>> TreeState, unsigned long empty_branches)
+Tree::Tree(std::vector<std::vector<int>> &TreeState, unsigned long empty_branches)
 {
 	branch_len = TreeState[0].size();
 	amount_of_empty_branches = parse_empty_branches(TreeState) + empty_branches;
@@ -107,13 +108,13 @@ std::vector<std::vector<int>> Tree::get_TreeState(void)
 	return TreeState;
 }
 
-unsigned long Tree::parse_empty_branches(std::vector<std::vector<int>> TreeState)
+unsigned long Tree::parse_empty_branches(std::vector<std::vector<int>> &TreeState)
 {
 	long sum = std::count_if(TreeState.begin(), TreeState.end(), [](const std::vector<int>& elem) {return elem[0] == 0 ? true : false; });
 	return sum;
 }
 
-std::vector<Branch> Tree::parse_non_empty_branches(std::vector<std::vector<int>> TreeState)
+std::vector<Branch> Tree::parse_non_empty_branches(std::vector<std::vector<int>> &TreeState)
 {
 	std::vector<Branch> Branches = {};
 	for(auto branch_state : TreeState)
@@ -125,7 +126,8 @@ std::vector<Branch> Tree::parse_non_empty_branches(std::vector<std::vector<int>>
 	}
 	if(amount_of_empty_branches > 0)
 	{
-		Branch empty_branch(std::vector<int>(branch_len, 0));
+		auto vec = std::vector<int>(branch_len, 0);
+		Branch empty_branch(vec);
 		Branches.push_back(empty_branch);
 		amount_of_empty_branches--;
 	}
@@ -138,7 +140,7 @@ size_t Tree::measure_tree_unperfectness(void)
 	return unperfectness;
 }
 
-size_t Tree::get_hash(std::vector<std::vector<int>> tree)
+size_t Tree::get_hash(std::vector<std::vector<int>> &tree)
 {
 	size_t h = 0;
 	for(auto vec : tree)
@@ -234,7 +236,7 @@ std::vector<Node> get_neighbours(std::shared_ptr<Node> curr_node)
 	return neighbours;
 }
 
-int AStar(std::vector<std::vector<int>> startTreeState)
+int AStar(std::vector<std::vector<int>> &startTreeState)
 {
 	auto start_node_ptr = std::make_shared<Node>(Tree(startTreeState), nullptr, std::vector<Branch>{Branch(), Branch()});
 	Node start_node = *start_node_ptr; // Создаем копию для open_list
@@ -243,8 +245,6 @@ int AStar(std::vector<std::vector<int>> startTreeState)
 	std::ranges::make_heap(open_list, std::greater{});
 
 	std::unordered_set<Node> closed_set = {};
-
-
 
 	int nodes_processed = 0;
 

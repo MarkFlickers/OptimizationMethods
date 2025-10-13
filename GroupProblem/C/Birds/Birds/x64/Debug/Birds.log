@@ -1,10 +1,38 @@
-﻿  main.cpp
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\limits.h(70,5): warning C4668: "__STDC_WANT_SECURE_LIB__" не задано как макроопределение препроцессора, замена на "0" для "#if/#elif"
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\xmemory(164,5): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\xmemory(174,5): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(106,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(361,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
-C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.37.32822\include\atomic(377,9): warning C4365: аргумент: преобразование "long" в "unsigned int", несоответствие типов со знаком и без
-C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(24,9): warning C4820: "Tree": отбивка размером "4" байт добавлена после данные-член "Tree::amount_of_empty_branches"
-C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(45,9): warning C4820: "Node": отбивка размером "4" байт добавлена после данные-член "Node::g"
-  Birds.vcxproj -> C:\Users\Vladimir\Desktop\sharaga\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\x64\Debug\Birds.exe
+﻿  AStar.cpp
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\xmemory(178,5): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\xmemory(188,5): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(107,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(363,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(379,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(23,16): warning C4820: 'Tree': '4' bytes padding added after data member 'Tree::amount_of_empty_branches'
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(44,6): warning C4820: 'Node': '4' bytes padding added after data member 'Node::g'
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(113,11): warning C4244: 'initializing': conversion from '__int64' to 'long', possible loss of data
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(114,9): warning C4365: 'return': conversion from 'long' to 'unsigned long', signed/unsigned mismatch
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(119,22): warning C4458: declaration of 'Branches' hides class member
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,9): warning C4458: declaration of 'unperfectness' hides class member
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,23): warning C4365: 'initializing': conversion from '_Ty' to 'size_t', signed/unsigned mismatch
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,23): warning C4365:         with
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,23): warning C4365:         [
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,23): warning C4365:             _Ty=int
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(139,23): warning C4365:         ]
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4267: '=': conversion from 'size_t' to '_Ty', possible loss of data
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4267:         with
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4267:         [
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4267:             _Ty=int
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4267:         ]
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4365: '=': conversion from 'size_t' to '_Ty', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4365:         with
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4365:         [
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4365:             _Ty=int
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\numeric(35,26): warning C4365:         ]
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.cpp(26,10): warning C4514: 'std::hash<std::vector<std::vector<int,std::allocator<int>>,std::allocator<std::vector<int,std::allocator<int>>>>>::operator ()': unreferenced inline function has been removed
+  main.cpp
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\xmemory(178,5): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\xmemory(188,5): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(107,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(363,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\include\atomic(379,9): warning C4365: 'argument': conversion from 'long' to 'unsigned int', signed/unsigned mismatch
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(23,16): warning C4820: 'Tree': '4' bytes padding added after data member 'Tree::amount_of_empty_branches'
+C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\Birds\AStar.h(44,6): warning C4820: 'Node': '4' bytes padding added after data member 'Node::g'
+  Generating Code...
+  Birds.vcxproj -> C:\Users\User\Desktop\Studying\Maga\MO\OptimizationMethods\GroupProblem\C\Birds\x64\Debug\Birds.exe
