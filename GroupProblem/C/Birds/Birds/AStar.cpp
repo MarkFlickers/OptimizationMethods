@@ -4,6 +4,7 @@
 #include <numeric>
 #include <queue>
 #include <unordered_set>
+#include <unordered_map>
 #include <memory>
 #include "AStar.h"
 
@@ -25,14 +26,12 @@ namespace std {
 	template <> struct hash<std::vector<std::vector<int>>> {
 		size_t operator()(const std::vector<std::vector<int>>& o) const
 		{
-			// Some custom logic for calculating hash of TreeState
-			size_t h = 0;
-			for(auto vec : o)
+			size_t h = o.size();
+			for(const auto& vec : o)
 			{
 				for(auto num : vec)
 				{
-					auto hash = std::hash<int>{}(num);
-					h ^= hash + 0x9e3779b9 + (h << 6) + (h >> 2);
+					h ^= std::hash<int>{}(num)+0x9e3779b9 + (h << 6) + (h >> 2);
 				}
 			}
 			return h;
@@ -63,15 +62,17 @@ size_t Branch::measure_unfillness(std::vector<int> &birds_configuration)
 	{
 		return 0;
 	}
-	std::map<int, int> frequencies;
 
+	std::unordered_map<int, int> frequencies;
+	frequencies.reserve(birds_configuration.size());
+
+	int max_freq = 0;
 	for(auto bird : birds_configuration)
 	{
-		frequencies[bird]++;
+		max_freq = std::max(max_freq, ++frequencies[bird]);
 	}
-	using pair_type = decltype(frequencies)::value_type;
-	auto max = std::max_element(std::begin(frequencies), std::end(frequencies), [](const pair_type& p1, const pair_type& p2) {return p1.second < p2.second; });
-	return birds_configuration.size() - max->second;
+
+	return birds_configuration.size() - max_freq;
 }
 
 Tree::Tree(void)
@@ -87,6 +88,7 @@ Tree::Tree(void)
 Tree::Tree(std::vector<std::vector<int>> &TreeState, unsigned long empty_branches)
 {
 	branch_len = TreeState[0].size();
+	Branches.reserve(TreeState.size());
 	amount_of_empty_branches = parse_empty_branches(TreeState) + empty_branches;
 	Branches = parse_non_empty_branches(TreeState);
 	unperfectness = measure_tree_unperfectness();
@@ -191,45 +193,78 @@ bool Node::operator > (const Node& other) const
 
 std::vector<std::vector<int>> move_bird(std::vector<std::vector<int>> TreeState, unsigned int src_branch_number, unsigned int dst_branch_number)
 {
-	std::vector<int> src_branch = TreeState[src_branch_number];
-	std::vector<int> dst_branch = TreeState[dst_branch_number];
+	static const std::vector<std::vector<int>> empty_result = {{0}};
 
-	if(src_branch[0] == 0 or src_branch_number == dst_branch_number)
-		return {{0}};
+	if(src_branch_number == dst_branch_number || TreeState[src_branch_number][0] == 0)
+		return empty_result;
 
-	auto src_non_zero_elem_p = std::find(src_branch.begin(), src_branch.end(), 0);
-	src_non_zero_elem_p--;
+	const auto& src_branch = TreeState[src_branch_number];
+	const auto& dst_branch = TreeState[dst_branch_number];
 
-	auto dst_zero_elem_p = std::find(dst_branch.begin(), dst_branch.end(), 0);
-	if(dst_zero_elem_p == dst_branch.end())
-		return {{0}};
-
-	if(dst_zero_elem_p == dst_branch.begin() or *(dst_zero_elem_p - 1) == *src_non_zero_elem_p)
+	int src_last_non_zero = -1;
+	for(int i = src_branch.size() - 1; i >= 0; --i)
 	{
-		*dst_zero_elem_p = *src_non_zero_elem_p;
-		*src_non_zero_elem_p = 0;
-		TreeState[src_branch_number] = src_branch;
-		TreeState[dst_branch_number] = dst_branch;
-		return TreeState;
+		if(src_branch[i] != 0) {
+			src_last_non_zero = i;
+			break;
+		}
 	}
 
-	return {{0}};
+	if(src_last_non_zero == -1) 
+		return empty_result;
+
+	int dst_first_zero = -1;
+	for(int i = 0; i < dst_branch.size(); ++i)
+	{
+		if(dst_branch[i] == 0) {
+			dst_first_zero = i;
+			break;
+		}
+	}
+
+	if(dst_first_zero == -1)
+		return empty_result;
+
+	if(dst_first_zero > 0 && dst_branch[dst_first_zero - 1] != src_branch[src_last_non_zero])
+	{
+		return empty_result;
+	}
+
+	std::vector<std::vector<int>> new_state = TreeState;
+
+	new_state[src_branch_number][src_last_non_zero] = 0;
+	new_state[dst_branch_number][dst_first_zero] = src_branch[src_last_non_zero];
+
+	return new_state;
 }
 
 std::vector<Node> get_neighbours(std::shared_ptr<Node> curr_node)
 {
-	std::vector<Node> neighbours = {};
-	auto CurrentTree = curr_node->nodeTree.get_TreeState();
+	std::vector<Node> neighbours;
+	const auto& CurrentTree = curr_node->nodeTree.get_TreeState();
+	size_t tree_size = CurrentTree.size();
 
-	for(unsigned int src_idx = 0; src_idx < CurrentTree.size(); src_idx++)
+	neighbours.reserve(tree_size * (tree_size - 1));
+
+	for(unsigned int src_idx = 0; src_idx < tree_size; src_idx++)
 	{
-		for(unsigned int dst_idx = 0; dst_idx < CurrentTree.size(); dst_idx++)
+		if(CurrentTree[src_idx][0] == 0)
+			continue;
+
+		for(unsigned int dst_idx = 0; dst_idx < tree_size; dst_idx++)
 		{
+			if(src_idx == dst_idx)
+				continue;
+
 			auto NewTree = move_bird(CurrentTree, src_idx, dst_idx);
-			if(NewTree != std::vector<std::vector<int>>{{0}})
+			if(NewTree[0][0] != 0)
 			{
-				auto neigbour = Node(Tree(NewTree, curr_node->nodeTree.amount_of_empty_branches), curr_node, {Branch(), Branch()}, curr_node->g + 1);
-				neighbours.push_back(neigbour);
+				neighbours.emplace_back(
+					Tree(NewTree, curr_node->nodeTree.amount_of_empty_branches),
+					curr_node,
+					std::vector<Branch>{},
+					curr_node->g + 1
+				);
 			}
 		}
 	}
@@ -238,72 +273,72 @@ std::vector<Node> get_neighbours(std::shared_ptr<Node> curr_node)
 
 int AStar(std::vector<std::vector<int>> &startTreeState)
 {
-	auto start_node_ptr = std::make_shared<Node>(Tree(startTreeState), nullptr, std::vector<Branch>{Branch(), Branch()});
-	Node start_node = *start_node_ptr; // Создаем копию для open_list
+	auto start_node_ptr = std::make_shared<Node>(Tree(startTreeState), nullptr, std::vector<Branch>{});
+	const Node& start_node = *start_node_ptr;
 
-	std::vector<Node> open_list = {start_node};
-	std::ranges::make_heap(open_list, std::greater{});
+	auto node_compare = [](const Node* a, const Node* b) { return a->f > b->f; };
+	std::priority_queue<Node*, std::vector<Node*>, decltype(node_compare)> open_list(node_compare);
 
-	std::unordered_set<Node> closed_set = {};
+	std::vector<std::unique_ptr<Node>> all_nodes;
+	all_nodes.push_back(std::make_unique<Node>(*start_node_ptr));
+	open_list.push(all_nodes.back().get());
 
-	int nodes_processed = 0;
+	std::unordered_set<size_t> closed_set;
 
-	while(not open_list.empty())
+	while(!open_list.empty())
 	{
-		std::ranges::pop_heap(open_list, std::greater{});
-		Node current_node = open_list.back();
-		open_list.pop_back();
+		Node* current_node_ptr = open_list.top();
+		open_list.pop();
 
-		if(closed_set.find(current_node) != closed_set.end())
-		{
+		Node& current_node = *current_node_ptr;
+
+		if(closed_set.count(current_node._hash))
 			continue;
-		}
 
 		if(current_node.h == 0)
 		{
 			int steps_number = 0;
-			std::shared_ptr<Node> current = std::make_shared<Node>(current_node);
-			while(current != nullptr)
+			const Node* current = &current_node;
+			while(current->parent != nullptr)
 			{
 				steps_number++;
-				current = current->parent;
+				current = current->parent.get();
 			}
 			return steps_number;
 		}
 
-		closed_set.insert(current_node);
+		closed_set.insert(current_node._hash);
 
-		auto current_node_ptr = std::make_shared<Node>(current_node);
-		auto neighbours = get_neighbours(current_node_ptr);
+		auto neighbours = get_neighbours(std::make_shared<Node>(current_node));
 
-		for(auto neighbour : neighbours)
+		for(auto& neighbour : neighbours)
 		{
-			if(closed_set.find(neighbour) != closed_set.end())
-			{
+			if(closed_set.count(neighbour._hash))
 				continue;
-			}
 
-			auto existing_node = std::find(open_list.begin(), open_list.end(), neighbour);
-			if(existing_node != open_list.end())
+			bool found = false;
+			for(const auto& node : all_nodes) 
 			{
-				if(neighbour.g < existing_node->g)
+				if(node->_hash == neighbour._hash) 
 				{
-					existing_node->g = neighbour.g;
-					existing_node->f = neighbour.f;
-					existing_node->parent = neighbour.parent;
-					existing_node->parent_diff = neighbour.parent_diff;
-					std::ranges::make_heap(open_list, std::greater{});     // Maybe change this to erase + push_back + push_heap?
+					if(neighbour.g < node->g) 
+					{
+						node->g = neighbour.g;
+						node->f = neighbour.f;
+						node->parent = neighbour.parent;
+						open_list.push(node.get());
+					}
+					found = true;
+					break;
 				}
 			}
-			else
+
+			if(!found) 
 			{
-				open_list.push_back(neighbour);
-				std::ranges::push_heap(open_list, std::greater{});
+				all_nodes.push_back(std::make_unique<Node>(std::move(neighbour)));
+				open_list.push(all_nodes.back().get());
 			}
-
 		}
-		nodes_processed++;
 	}
-
 	return 0;
 }

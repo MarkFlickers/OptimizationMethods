@@ -84,21 +84,6 @@ function [derivative_val] = second_derivative(func, arg)
     end
 end
 
-function L = get_lipschitz_const(f, start, stop, precision)
-    global df;
-    func = @(x) -abs(df(x));
-    [xL, L] = bruteforce(func, start, stop, precision);
-end
-
-function [xmin, fmin, func_calculations] = bruteforce(f, start, stop, precision)
-    n = ceil((stop - start)/precision);
-    arg = linspace(start, stop, n);
-    y = f(arg);
-    func_calculations = n;
-    [fmin, ind] = min(y);
-    xmin = arg(ind);
-end
-
 function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, k)
     func_calculations = 0;
     delta = 1;
