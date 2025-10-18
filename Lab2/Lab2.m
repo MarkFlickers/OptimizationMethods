@@ -8,10 +8,13 @@ global DERIVATIVE_TYPE_CENTRAL;
 global derivative_type;
 global ddf;
 global df;
+global df1;
+global df2;
 
 global DERIVATIVE_PRECISION;
 global FIRST_DERIVATIVE_COST;
 global SECOND_DERIVATIVE_COST;
+global GRADIENT_COST;
 
 DERIVATIVE_TYPE_DIFF    = 0;
 DERIVATIVE_TYPE_LEFT    = 1;
@@ -27,6 +30,8 @@ else
     FIRST_DERIVATIVE_COST = 2;
     SECOND_DERIVATIVE_COST = 3;
 end
+
+GRADIENT_COST = 2;
 
 function [derivative_val] = calculate_left_derivative(f, x, h)
     derivative_val = (f(x) - f(x - h)) / h;
@@ -84,15 +89,21 @@ function [derivative_val] = second_derivative(func, arg)
     end
 end
 
+function [grad] = func_gradient(f, x)
+    global df1;
+    global df2;
+    grad = [double(df1(x(1), x(2))), double(df2(x(1), x(2)))];
+end
+
 function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, k)
-    func_calculations = 0;
     delta = 1;
     x = start;
     direction = 1;
-    yprev = 0;
+    y = f(x);
+    func_calculations = 1;
     while delta > precision
         delta = delta / k;
-        yprev = f(start);
+        yprev = y;
         func_calculations = func_calculations + 1;
         x = x + delta*direction;
         y = f(x);
@@ -110,156 +121,71 @@ function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, 
     xmin = xprev;
 end
 
-function [xmin, fmin, func_calculations] = dichotomy(f, start, stop, target_precision)
+function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
+    global GRADIENT_COST;
+    % Метод наискорейшего спуска
+    x = x0;
     func_calculations = 0;
-    d = 0.2*target_precision;
-    achieved_precision = (stop - start) / 2;
-    while achieved_precision > target_precision
-        x1 = (start + stop - d) / 2;
-        x2 = (start + stop + d) / 2;
-        y1 = f(x1);
-        y2 = f(x2);
-        func_calculations = func_calculations + 2;
-        if y1 <= y2
-            stop = x2;
-        else
-            start = x1;
+    max_iter = 1000;
+    func = @(x) f(x(1), x(2));
+    
+    for iter = 1:max_iter
+        % Вычисление градиента
+        %[grad, deriv_evals] = numerical_gradient(f, x);
+        grad = func_gradient(f,x);
+        func_calculations = func_calculations + GRADIENT_COST;
+        % Критерий остановки
+        if norm(grad) < epsilon
+            break;
         end
-        achieved_precision = (stop - start) / 2;
+      
+        % Поиск оптимального шага
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x - a * grad), 0, 1, epsilon, 4);
+        func_calculations = func_calculations + calcs;
+        
+        x_new = x - alpha * grad;
+        x = x_new;
     end
-    xmin = (stop + start) / 2;
-    fmin = f(xmin);
+    
+    xmin = x;
+    fmin = func(x);
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = goldenratio(f, start, stop, target_precision)
-    tau = (sqrt(5) - 1) / 2;
-    x1 = start + (1 - tau) * (stop - start);
-    x2 = start + tau * (stop - start);
-    y1 = f(x1);
-    y2 = f(x2);
-    func_calculations = 2;
-    n = 0;
-    achieved_precision = (stop - start) / 2 * tau^n;
-    while achieved_precision > target_precision
-        if y1 <= y2
-            stop = x2;
-            x2 = x1;
-            x1 = start + stop - x2;
-            y2 = y1;
-            y1 = f(x1);
-            func_calculations = func_calculations + 1;
-        else
-            start = x1;
-            x1 = x2;
-            x2 = start + stop - x1;
-            y1 = y2;
-            y2 = f(x2);
-            func_calculations = func_calculations + 1;
-        end
-        n = n + 1;
-        achieved_precision = achieved_precision * tau;
-    end
-    xmin = (x1 + x2) / 2;
-    fmin = f(xmin);
-    func_calculations = func_calculations + 1;
-end
-
-function [xmin, fmin, func_calculations] = parabolic(f, start, stop, target_precision)
-    x1 = start;
-    x2 = (start + stop) / 2;
-    x3 = stop;
-    f1 = f(x1);
-    f2 = f(x2);
-    f3 = f(x3);
-    func_calculations = 3;
-    while ~((f1 >= f2) && (f2 <= f3))
-        if f1 > f3
-            x2 = (x2 + x3) / 2;
-        else
-            x2 = (x1 + x2) / 2;
-        end
-        f2 = f(x2);
-        func_calculations = func_calculations + 1;
-    end
-    xmin = x2;
-    delta = target_precision + 1;
-
-    while delta > target_precision
-        a0 = f1;
-        a1 = (f2 - f1)/(x2 - x1);
-        a2 = 1/(x3 - x2) * (((f3-f1)/(x3-x1))-((f2-f1)/(x2-x1)));
-        xminprev = xmin;
-        xmin = 1/2*(x1 + x2 - a1/a2);
-        fmin = f(xmin);
-        func_calculations = func_calculations + 1;
-
-        if xmin < x2
-            if fmin >= f2
-                x1 = xmin;
-                f1 = fmin;
-            else
-                x1 = x2;
-                f1 = f2;
-                x2 = xmin;
-                f2 = fmin;
-            end
-        else
-            if fmin >= f2
-                x3 = xmin;
-                f3 = fmin;
-            else
-                x1 = x2;
-                f1 = f2;
-                x2 = xmin;
-                f2 = fmin;
-            end
-        end
-        delta = abs(xminprev - xmin);
-    end
-end
-
-function [xmin, fmin, func_calculations] = middlepoint(func, start, stop, target_precision)
-    global FIRST_DERIVATIVE_COST;
+function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
+    global GRADIENT_COST;
+    % Метод сопряженных градиентов (Флетчера-Ривса)
+    x = x0;
     func_calculations = 0;
-    xmin = (stop + start) / 2;
-    dfmin = first_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST;
-    while abs(dfmin) > target_precision
-        if dfmin > 0
-            stop = xmin;
-        else
-            start = xmin;
-        end
-        xmin = (start + stop) / 2;
-        dfmin = first_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST;
-    end
-    fmin = func(xmin);
-    func_calculations = func_calculations + 1;
-end
+    max_iter = 1000;
+    func = @(x) f(x(1), x(2));
+    
+    grad = func_gradient(f,x);
+    func_calculations = func_calculations + GRADIENT_COST;
+    d = -grad;
+    
+    for iter = 1:max_iter
+        % Поиск оптимального шага
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, 1, epsilon, 4);
+        func_calculations = func_calculations + calcs;
 
-function [xmin, fmin, func_calculations] = chord(func, start, stop, target_precision)
-    global FIRST_DERIVATIVE_COST;
-    func_calculations = 0;
-    dfa = first_derivative(func, start);
-    dfb = first_derivative(func, stop);
-    xmin = start - (dfa / (dfa - dfb)) * (start - stop);
-    dfmin = first_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST * 3;
-    while abs(dfmin) > target_precision
-        if dfmin > 0
-            stop = xmin;
-            dfb = dfmin;
-        else
-            start = xmin;
-            dfa = dfmin;
+        x = x + alpha * d;
+
+        grad_prev = grad;
+        grad = func_gradient(f,x);
+        func_calculations = func_calculations + GRADIENT_COST;
+
+        beta = norm(grad)^2 / norm(grad_prev)^2;
+        d = -grad + beta * d;
+
+        if norm(d) < epsilon
+            break;
         end
-        xmin = start - (dfa / (dfa - dfb)) * (start - stop);
-        dfmin = first_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST;
+        
+        
     end
-    fmin = func(xmin);
+    xmin = x;
+    fmin = func(x);
     func_calculations = func_calculations + 1;
 end
 
@@ -288,124 +214,6 @@ function [xmin, fmin, func_calculations] = Newton(func, start, target_precision)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = Newton_Raphson(func, start, target_precision)
-    global FIRST_DERIVATIVE_COST;
-    global SECOND_DERIVATIVE_COST;
-    func_calculations = 0;
-    xmin = start;
-    dfmin = first_derivative(func, xmin);
-    ddfmin = second_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    step = abs(dfmin/ddfmin);
-    while abs(dfmin) > target_precision
-        xrude = xmin - dfmin/ddfmin;
-        dfxrude = first_derivative(func, xrude);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST;
-        tau = dfmin^2 / (dfmin^2 + dfxrude^2);
-        xmin = xmin - dfmin/ddfmin * tau;
-        prevstep = step;
-        step = abs(dfmin/ddfmin);
-        if (step - prevstep) > 0
-            xmin = Inf;
-            break
-        end 
-        dfmin = first_derivative(func, xmin);
-        ddfmin = second_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    end
-    fmin = func(xmin);
-    func_calculations = func_calculations + 1;
-end
-
-function [xmin, fmin, func_calculations] = Marquardt(func, start, target_precision)
-    global FIRST_DERIVATIVE_COST;
-    global SECOND_DERIVATIVE_COST;
-    func_calculations = 0;
-    xmin = start;
-    dfmin = first_derivative(func, xmin);
-    ddfmin = second_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    step = abs(dfmin/ddfmin);
-    mu = ddfmin * 10;
-    fx = func(xmin);
-    func_calculations = func_calculations + 1;
-    while abs(dfmin) > target_precision
-        xmin = xmin - dfmin/(ddfmin + mu);
-        fxnew = func(xmin);
-        func_calculations = func_calculations + 1;
-        if fx > fxnew
-            mu = mu / 2;
-        else
-            mu = mu * 2;
-        end
-        fx = fxnew;
-        prevstep = step;
-        step = abs(dfmin/ddfmin);
-        if (step - prevstep) > 0
-            xmin = Inf;
-            break
-        end 
-        dfmin = first_derivative(func, xmin);
-        ddfmin = second_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    end
-    fmin = func(xmin);
-    func_calculations = func_calculations + 1;
-end
-
-function [range_start, range_end] = FindConvergenceInterval(f, start, minimizingFunc, target_precision)
-    
-    prevapprox = start;
-    newapprox = -100;
-    while(abs(prevapprox - newapprox) > target_precision)
-        [x, y] = minimizingFunc(f, newapprox, target_precision);
-        if abs(x) < 1e-2
-            prevapprox = newapprox;
-            newapprox = newapprox * 2;
-        else
-            newapprox = (newapprox + prevapprox) / 2;
-        end
-    end
-    range_start = prevapprox;
-
-    prevapprox = start;
-    newapprox = 100;
-    while(abs(prevapprox - newapprox) > target_precision)
-        [x, y] = minimizingFunc(f, newapprox, target_precision);
-        if abs(x) < 1e-2
-            prevapprox = newapprox;
-            newapprox = newapprox * 2;
-        else
-            newapprox = (newapprox + prevapprox) / 2;
-        end
-    end
-    range_end = prevapprox;
-end
-
-function [xmin, fmin, func_calculations] = Polyline(func, start, stop, target_precision)
-    L = abs(double(get_lipschitz_const(func, start, stop, target_precision))) - 1;
-    f_a = func(start);
-    f_b = func(stop);
-    func_calculations = 2;
-    x = (f_a - f_b + L*(start + stop)) / (2*L);
-    y = (f_a + f_b + L*(start - stop)) / 2;
-    x_p_arr = [[x, y]];
-    delta_y = target_precision + 1;
-    while delta_y > target_precision
-        [p, i] = min(x_p_arr(:,2));
-        x = x_p_arr(i,1);
-        y = func(x);
-        func_calculations = func_calculations + 1;
-        delta_x = (y - p) / (2*L);
-        delta_y = delta_x * (2*L);
-        x1 = x - delta_x;
-        x2 = x + delta_x;
-        p = (y + p) / 2;
-        x_p_arr = [x_p_arr(1:i - 1,:); [x1, p]; [x2, p]; x_p_arr(i + 1:end,:)];
-    end
-    xmin = x;
-    fmin = y;
-end
 
 function plotSingleFunction(f, start, stop)
     % Create x values symmetric around zero
@@ -500,14 +308,20 @@ end
 
 target_precision = 0.000001;
 DERIVATIVE_PRECISION = target_precision;
-start = -1;
-stop = 0;
-f = @(x) x.^4 + x.^2 + x.^1 + 1;
-plotSingleFunction(f, start, stop);
-syms func(x);
-func(x) = f;
-df = matlabFunction(diff(func, x));
-ddf = matlabFunction(diff(func, x, 2));
+x0 = [1, -1];
+a = 1;
+f = @(x1, x2) x1.^2 + a * x2.^2;
+%f = @(x) x(1).^2 + a * x(2).^2;
+%plotSingleFunction(f, start, stop);
+syms func(x1, x2);
+func(x1, x2) = f;
+df1 = matlabFunction(diff(func, x1));
+df2 = matlabFunction(diff(func, x2));
+grad = func_gradient(f, x0);
+
+[x, y, Nsteepest] = steepest_descent(f, x0, target_precision)
+[x, y, Nconjugate] = conjugate_gradient(f, x0, target_precision)
+%ddf = matlabFunction(diff(func, x, 2));
 % Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
 % %Names = ["precision", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
 % N = [];
