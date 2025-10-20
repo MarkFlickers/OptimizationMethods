@@ -8,6 +8,8 @@
 #include <memory>
 #include "AStar.h"
 
+extern AStarSolver *GlobalSolver_p;
+
 namespace std {
 	template<> struct hash<TreeState> {
 		size_t operator()(const TreeState& ts) const {
@@ -77,31 +79,52 @@ Tree::Tree(const Tree& parent, const Move& move) {
 
 	// Пересчитываем хэш
 	state_.computeHash();
-	computeUnperfectness();
+	unperfectness_ = computeUnperfectnessIncremental(parent, move);
 }
 
 bool Tree::operator==(const Tree& other) const {
 	return state_ == other.state_;
 }
 
+size_t Tree::computeUnperfectnessIncremental(const Tree& parent, const Move& move) {
+	// Вычисляем изменения только для затронутых веток
+	size_t delta = 0;
+
+	// Вычитаем старые значения для измененных веток
+	delta -= ::computeBranchUnperfectnessWithCache(parent.state_, move.src_branch);
+	delta -= ::computeBranchUnperfectnessWithCache(parent.state_, move.dst_branch);
+
+	// Прибавляем новые значения для измененных веток
+	delta += ::computeBranchUnperfectnessWithCache(state_, move.src_branch);
+	delta += ::computeBranchUnperfectnessWithCache(state_, move.dst_branch);
+	
+	return parent.unperfectness_ + delta;
+}
+
 void Tree::computeUnperfectness() {
 	unperfectness_ = 0;
 	for(uint32_t i = 0; i < state_.getBranchesCount(); ++i) {
-		unperfectness_ += computeBranchUnperfectness(i);
+		unperfectness_ += computeBranchUnperfectnessWithCache(state_, i);
 	}
 }
 
 size_t Tree::computeBranchUnperfectness(uint32_t branch_index) {
 	if(state_.at(branch_index, 0) == 0) return 0;
 
-	std::unordered_map<char, uint32_t> freq;
+	const int MAX_BIRD_TYPES = 26;
+	uint32_t freq[MAX_BIRD_TYPES] = {0};
 	uint32_t max_freq = 0;
 
 	for(uint32_t j = 0; j < state_.getBranchLen(); ++j) {
 		char bird = state_.at(branch_index, j);
 		if(bird != 0) {
-			max_freq = std::max(max_freq, ++freq[bird]);
+			freq[bird]++;
 		}
+	}
+	for(uint8_t i = 0; i < MAX_BIRD_TYPES; i++)
+	{
+		if(freq[i] > max_freq)
+			max_freq = freq[i];
 	}
 
 	return state_.getBranchLen() - max_freq;
@@ -219,7 +242,7 @@ void AStarSolver::processNeighbors(const Node& current_node,
 	std::priority_queue<Node, std::vector<Node>, std::greater<Node>>& open_list,
 	std::unordered_set<size_t>& closed_set,
 	std::vector<std::shared_ptr<Node>>& all_nodes) const {
-	auto moves = findPossibleMoves(current_node.getTree());
+	auto moves = findPossibleMovesWithCache(current_node.getTree());
 
 	for(const auto& move : moves) {
 		Tree new_tree = applyMove(current_node.getTree(), move);
@@ -238,8 +261,71 @@ void AStarSolver::processNeighbors(const Node& current_node,
 	}
 }
 
+std::vector<Move> AStarSolver::findPossibleMovesWithCache(const Tree& tree) const {
+	size_t tree_hash = tree.getHash();
+	auto it = moves_cache_.find(tree_hash);
+	if(it != moves_cache_.end()) {
+		return it->second;
+	}
+
+	std::vector<Move> moves = findPossibleMoves(tree);
+	moves_cache_[tree_hash] = moves;
+	return moves;
+}
+
+
 // Вспомогательная функция для конвертации из старого формата
-TreeState convertToFlatTreeState(const std::vector<std::vector<char>>& state) {
+TreeState convertToFlatTreeState(const std::vector<std::vector<char>>& state) 
+{
 	if(state.empty()) return TreeState(0, 0, state);
 	return TreeState(state.size(), state[0].size(), state);
+}
+
+size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index) 
+{
+	static std::unordered_map<size_t, size_t> branch_unperfectness_cache_ = {};
+
+	const char* branch_data = &state.getData()[branch_index * state.getBranchLen()];
+	size_t branch_hash = computeBranchHash(branch_data, state.getBranchLen());
+
+	auto it = branch_unperfectness_cache_.find(branch_hash);
+	if(it != branch_unperfectness_cache_.end()) {
+		return it->second;
+	}
+
+	size_t result = computeBranchUnperfectness(state, branch_index);
+	branch_unperfectness_cache_[branch_hash] = result;
+	return result;
+}
+
+size_t computeBranchHash(const char* branch_data, uint32_t branch_len) 
+{
+	size_t h = 0;
+	for(uint32_t i = 0; i < branch_len; ++i) {
+		h = h * 31 + static_cast<size_t>(branch_data[i]);
+	}
+	return h;
+}
+
+size_t computeBranchUnperfectness(const TreeState & state, uint32_t branch_index)
+{
+	if(state.at(branch_index, 0) == 0) return 0;
+
+	const int MAX_BIRD_TYPES = 26;
+	uint32_t freq[MAX_BIRD_TYPES] = {0};
+	uint32_t max_freq = 0;
+
+	for(uint32_t j = 0; j < state.getBranchLen(); ++j) {
+		char bird = state.at(branch_index, j);
+		if(bird != 0) {
+			freq[bird]++;
+		}
+	}
+	for(uint8_t i = 0; i < MAX_BIRD_TYPES; i++)
+	{
+		if(freq[i] > max_freq)
+			max_freq = freq[i];
+	}
+
+	return state.getBranchLen() - max_freq;
 }

@@ -29,7 +29,7 @@ private:
     void flatten(const std::vector<std::vector<char>>& state);
 
 public:
-    TreeState() = default;
+    TreeState(void) = default;
     TreeState(uint32_t branches, uint32_t branch_len, const std::vector<std::vector<char>>& state);
     TreeState(uint32_t branches, uint32_t branch_len, const std::vector<char>& flat_data);
 
@@ -52,6 +52,7 @@ private:
     TreeState state_;
     size_t unperfectness_;
 
+    size_t computeUnperfectnessIncremental(const Tree& parent, const Move& move);
     void computeUnperfectness();
     size_t computeBranchUnperfectness(uint32_t branch_index);
 
@@ -90,16 +91,24 @@ public:
 class AStarSolver {
 private:
     TreeState start_state_;
+    mutable std::unordered_map<size_t, size_t> branch_unperfectness_cache_;
+    mutable std::unordered_map<size_t, std::vector<Move>> moves_cache_;
 
 public:
     AStarSolver(const TreeState& start_state);
     SolvedTree solve();
     std::vector<Move> findPossibleMoves(const Tree& tree) const;
     Tree applyMove(const Tree& tree, const Move& move) const;
+    std::vector<Move> findPossibleMovesWithCache(const Tree& tree) const;
 
 private:
     void processNeighbors(const Node& current_node,
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>>& open_list,
         std::unordered_set<size_t>& closed_set,
         std::vector<std::shared_ptr<Node>>& all_nodes) const;
+
 };
+
+size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index);
+size_t computeBranchUnperfectness(const TreeState & state, uint32_t branch_index);
+size_t computeBranchHash(const char* branch_data, uint32_t branch_len);

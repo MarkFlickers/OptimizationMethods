@@ -3,6 +3,8 @@
 #include "AStar.h"
 #include <cstdlib>
 
+AStarSolver *GlobalSolver_p;
+
 typedef struct{
 	uint32_t branches_on_tree;
 	uint8_t branch_len;
@@ -56,9 +58,10 @@ input_data_t DATA5 = {
 
 int main( void )
 {
-	input_data_t DATA = DATA4;
+	input_data_t DATA = DATA2;
 	auto start_state = TreeState(DATA.branches_on_tree, DATA.branch_len, DATA.TreeState);
 	auto Solver = AStarSolver(start_state);
+	GlobalSolver_p = &Solver;
 	auto ans = Solver.solve();
 	printf("%d\n", ans.steps_amount);
 	for(uint32_t i = 1; i < ans.steps_amount + 1; i++)
