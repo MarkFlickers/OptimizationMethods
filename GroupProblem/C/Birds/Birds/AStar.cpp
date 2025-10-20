@@ -9,336 +9,237 @@
 #include "AStar.h"
 
 namespace std {
-	template <> struct hash<Node> {
-		size_t operator()(const Node& o) const
-		{
-			// Some custom logic for calculating hash of Node
-			return o._hash;
+	template<> struct hash<TreeState> {
+		size_t operator()(const TreeState& ts) const {
+			return ts.getHash();
 		}
 	};
-	template <> struct hash<Tree> {
-		size_t operator()(const Tree& o) const
-		{
-			// Some custom logic for calculating hash of Tree
-			return o._hash;
-		}
-	};
-	template <> struct hash<std::vector<std::vector<int>>> {
-		size_t operator()(const std::vector<std::vector<int>>& o) const
-		{
-			size_t h = o.size();
-			for(const auto& vec : o)
-			{
-				for(auto num : vec)
-				{
-					h ^= std::hash<int>{}(num)+0x9e3779b9 + (h << 6) + (h >> 2);
-				}
-			}
-			return h;
+
+	template<> struct hash<Tree> {
+		size_t operator()(const Tree& t) const {
+			return t.getHash();
 		}
 	};
 }
 
-Branch::Branch(void)
-{
-	birds = std::vector<int>{0};
-	unfillness = 0;
+// TreeState implementation
+TreeState::TreeState(uint32_t branches, uint32_t branch_len,
+	const std::vector<std::vector<char>>& state)
+	: branches_count_(branches), branch_len_(branch_len) {
+	flatten(state);
+	computeHash();
 }
 
-Branch::Branch(std::vector<int> &birds_configuration)
-{
-	birds = birds_configuration;
-	unfillness = measure_unfillness(birds);
+TreeState::TreeState(uint32_t branches, uint32_t branch_len,
+	const std::vector<char>& flat_data)
+	: data_(flat_data), branches_count_(branches), branch_len_(branch_len) {
+	computeHash();
 }
 
-bool Branch::operator == (const Branch& other) const
-{
-	return (birds == other.birds);
-}
-
-size_t Branch::measure_unfillness(std::vector<int> &birds_configuration)
-{
-	if(birds_configuration[0] == 0)
-	{
-		return 0;
+void TreeState::flatten(const std::vector<std::vector<char>>& state) {
+	data_.resize(branches_count_ * branch_len_);
+	for(uint32_t i = 0; i < branches_count_; ++i) {
+		for(uint32_t j = 0; j < branch_len_; ++j) {
+			data_[i * branch_len_ + j] = state[i][j];
+		}
 	}
-
-	std::unordered_map<int, int> frequencies;
-	frequencies.reserve(birds_configuration.size());
-
-	int max_freq = 0;
-	for(auto bird : birds_configuration)
-	{
-		max_freq = std::max(max_freq, ++frequencies[bird]);
-	}
-
-	return birds_configuration.size() - max_freq;
 }
 
-Tree::Tree(void)
-{
-	amount_of_empty_branches = 0;
-	Branches = {Branch()};
-	unperfectness = 0;
-	branch_len = 0;
-	std::vector<std::vector<int>> vec = { {0} };
-	_hash = get_hash(vec);
-}
-
-Tree::Tree(std::vector<std::vector<int>> &TreeState, unsigned long empty_branches)
-{
-	branch_len = TreeState[0].size();
-	Branches.reserve(TreeState.size());
-	amount_of_empty_branches = parse_empty_branches(TreeState) + empty_branches;
-	Branches = parse_non_empty_branches(TreeState);
-	unperfectness = measure_tree_unperfectness();
-	_hash = get_hash(TreeState);
-}
-
-bool Tree::operator == (const Tree& other) const
-{
-	return (Branches == other.Branches);
-}
-
-std::vector<std::vector<int>> Tree::get_TreeState(void)
-{
-	std::vector<std::vector<int>> TreeState = {};
-	for(auto branch : Branches)
-	{
-		TreeState.push_back(branch.birds);
-	}
-	return TreeState;
-}
-
-unsigned long Tree::parse_empty_branches(std::vector<std::vector<int>> &TreeState)
-{
-	long sum = std::count_if(TreeState.begin(), TreeState.end(), [](const std::vector<int>& elem) {return elem[0] == 0 ? true : false; });
-	return sum;
-}
-
-std::vector<Branch> Tree::parse_non_empty_branches(std::vector<std::vector<int>> &TreeState)
-{
-	std::vector<Branch> Branches = {};
-	for(auto branch_state : TreeState)
-	{
-		Branch branch_candidate(branch_state);
-		if(branch_candidate.unfillness == 0)
-			continue;
-		Branches.push_back(branch_candidate);
-	}
-	if(amount_of_empty_branches > 0)
-	{
-		auto vec = std::vector<int>(branch_len, 0);
-		Branch empty_branch(vec);
-		Branches.push_back(empty_branch);
-		amount_of_empty_branches--;
-	}
-	return Branches;
-}
-
-size_t Tree::measure_tree_unperfectness(void)
-{
-	size_t unperfectness = std::accumulate(Branches.begin(), Branches.end(), 0, [](int sum, const Branch &b) {return sum + b.unfillness; });
-	return unperfectness;
-}
-
-size_t Tree::get_hash(std::vector<std::vector<int>> &tree)
+void TreeState::computeHash(void)
 {
 	size_t h = 0;
-	for(auto vec : tree)
+	for(auto num : data_)
 	{
-		for(auto num : vec)
-		{
-			auto hash = std::hash<int>{}(num);
-			h ^= hash + 0x9e3779b9 + (h << 6) + (h >> 2);
-		}
+		auto hash = std::hash<int>{}(num);
+		h ^= hash + 0x9e3779b9 + (h << 6) + (h >> 2);
 	}
-	return h;
+	hash_ = h;
 }
 
-Node::Node(void)
-{
-	nodeTree = Tree();
-	g = 0;
-	h = 0;
-	f = 0;
-	parent = nullptr;
-	parent_diff = {Branch(), Branch()};
-	_hash = std::hash<Tree>{}(nodeTree);
+bool TreeState::operator==(const TreeState& other) const {
+	return data_ == other.data_;
 }
 
-Node::Node(Tree itsTree, std::shared_ptr<Node> parent, std::vector<Branch> parent_diff, int g)
-{
-	this->nodeTree = itsTree;
-	this->g = g;
-	this->h = itsTree.unperfectness;
-	this->f = this->g + this->h;
-	this->parent = parent;
-	this->parent_diff = parent_diff;
-	_hash = std::hash<Tree>{}(nodeTree);
+// Tree implementation
+Tree::Tree(const TreeState& state) : state_(state) {
+	computeUnperfectness();
 }
 
-bool Node::operator == (const Node& other) const
-{
-	return nodeTree == other.nodeTree;
+Tree::Tree(const Tree& parent, const Move& move) {
+	// Быстрое копирование flat данных
+	state_ = TreeState(parent.state_.getBranchesCount(),
+		parent.state_.getBranchLen(),
+		parent.state_.getData());
+
+	// Применяем ход - всего 2 изменения в массиве
+	state_.at(move.src_branch, move.src_pos) = 0;
+	state_.at(move.dst_branch, move.dst_pos) = move.bird;
+
+	// Пересчитываем хэш
+	state_.computeHash();
+	computeUnperfectness();
 }
-bool Node::operator < (const Node& other) const
-{
-	return f < other.f;
-}
-bool Node::operator > (const Node& other) const
-{
-	return f > other.f;
+
+bool Tree::operator==(const Tree& other) const {
+	return state_ == other.state_;
 }
 
-std::vector<std::vector<int>> move_bird(std::vector<std::vector<int>> TreeState, unsigned int src_branch_number, unsigned int dst_branch_number)
-{
-	static const std::vector<std::vector<int>> empty_result = {{0}};
+void Tree::computeUnperfectness() {
+	unperfectness_ = 0;
+	for(uint32_t i = 0; i < state_.getBranchesCount(); ++i) {
+		unperfectness_ += computeBranchUnperfectness(i);
+	}
+}
 
-	if(src_branch_number == dst_branch_number || TreeState[src_branch_number][0] == 0)
-		return empty_result;
+size_t Tree::computeBranchUnperfectness(uint32_t branch_index) {
+	if(state_.at(branch_index, 0) == 0) return 0;
 
-	const auto& src_branch = TreeState[src_branch_number];
-	const auto& dst_branch = TreeState[dst_branch_number];
+	std::unordered_map<char, uint32_t> freq;
+	uint32_t max_freq = 0;
 
-	int src_last_non_zero = -1;
-	for(int i = src_branch.size() - 1; i >= 0; --i)
-	{
-		if(src_branch[i] != 0) {
-			src_last_non_zero = i;
-			break;
+	for(uint32_t j = 0; j < state_.getBranchLen(); ++j) {
+		char bird = state_.at(branch_index, j);
+		if(bird != 0) {
+			max_freq = std::max(max_freq, ++freq[bird]);
 		}
 	}
 
-	if(src_last_non_zero == -1) 
-		return empty_result;
-
-	int dst_first_zero = -1;
-	for(int i = 0; i < dst_branch.size(); ++i)
-	{
-		if(dst_branch[i] == 0) {
-			dst_first_zero = i;
-			break;
-		}
-	}
-
-	if(dst_first_zero == -1)
-		return empty_result;
-
-	if(dst_first_zero > 0 && dst_branch[dst_first_zero - 1] != src_branch[src_last_non_zero])
-	{
-		return empty_result;
-	}
-
-	std::vector<std::vector<int>> new_state = TreeState;
-
-	new_state[src_branch_number][src_last_non_zero] = 0;
-	new_state[dst_branch_number][dst_first_zero] = src_branch[src_last_non_zero];
-
-	return new_state;
+	return state_.getBranchLen() - max_freq;
 }
 
-std::vector<Node> get_neighbours(std::shared_ptr<Node> curr_node)
-{
-	std::vector<Node> neighbours;
-	const auto& CurrentTree = curr_node->nodeTree.get_TreeState();
-	size_t tree_size = CurrentTree.size();
-
-	neighbours.reserve(tree_size * (tree_size - 1));
-
-	for(unsigned int src_idx = 0; src_idx < tree_size; src_idx++)
-	{
-		if(CurrentTree[src_idx][0] == 0)
-			continue;
-
-		for(unsigned int dst_idx = 0; dst_idx < tree_size; dst_idx++)
-		{
-			if(src_idx == dst_idx)
-				continue;
-
-			auto NewTree = move_bird(CurrentTree, src_idx, dst_idx);
-			if(NewTree[0][0] != 0)
-			{
-				neighbours.emplace_back(
-					Tree(NewTree, curr_node->nodeTree.amount_of_empty_branches),
-					curr_node,
-					std::vector<Branch>{},
-					curr_node->g + 1
-				);
-			}
-		}
-	}
-	return neighbours;
+// Node implementation
+Node::Node(Tree&& tree, std::shared_ptr<Node> parent, const Move& move, int g)
+	: tree_(std::move(tree)), parent_(parent), move_(move), g_(g) {
+	f_ = g_ + tree_.getUnperfectness();
 }
 
-int AStar(std::vector<std::vector<int>> &startTreeState)
-{
-	auto start_node_ptr = std::make_shared<Node>(Tree(startTreeState), nullptr, std::vector<Branch>{});
-	const Node& start_node = *start_node_ptr;
+bool Node::operator>(const Node& other) const {
+	return f_ > other.f_;
+}
 
-	auto node_compare = [](const Node* a, const Node* b) { return a->f > b->f; };
-	std::priority_queue<Node*, std::vector<Node*>, decltype(node_compare)> open_list(node_compare);
+// AStarSolver implementation
+AStarSolver::AStarSolver(const TreeState& start_state)
+	: start_state_(start_state) {
+}
 
-	std::vector<std::unique_ptr<Node>> all_nodes;
-	all_nodes.push_back(std::make_unique<Node>(*start_node_ptr));
-	open_list.push(all_nodes.back().get());
+SolvedTree AStarSolver::solve() {
+	Tree start_tree(start_state_);
+	auto start_node = std::make_shared<Node>(std::move(start_tree), nullptr, Move{}, 0);
+
+	std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open_list;
+	open_list.push(*start_node);
 
 	std::unordered_set<size_t> closed_set;
+	std::vector<std::shared_ptr<Node>> all_nodes;
+	all_nodes.push_back(std::move(start_node));
 
-	while(!open_list.empty())
-	{
-		Node* current_node_ptr = open_list.top();
+	while(!open_list.empty()) {
+		Node current_node = open_list.top();
 		open_list.pop();
 
-		Node& current_node = *current_node_ptr;
+		if(closed_set.count(current_node.getHash())) continue;
 
-		if(closed_set.count(current_node._hash))
-			continue;
-
-		if(current_node.h == 0)
-		{
-			int steps_number = 0;
-			const Node* current = &current_node;
-			while(current->parent != nullptr)
-			{
-				steps_number++;
-				current = current->parent.get();
+		if(current_node.getTree().getUnperfectness() == 0) {
+			SolvedTree answer;
+			answer.steps_amount = 0;
+			answer.Moves.push_back(current_node.getMove());
+			auto current = current_node.getParent();
+			while(current) {
+				answer.Moves.insert(answer.Moves.begin(), current->getMove());
+				answer.steps_amount++;
+				current = current->getParent();
 			}
-			return steps_number;
+			return answer;
 		}
 
-		closed_set.insert(current_node._hash);
+		closed_set.insert(current_node.getHash());
+		processNeighbors(current_node, open_list, closed_set, all_nodes);
+	}
+	SolvedTree answer
+	{
+		.steps_amount = 0
+	};
+	return answer;
+}
 
-		auto neighbours = get_neighbours(std::make_shared<Node>(current_node));
+std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const {
+	std::vector<Move> moves;
+	const auto& state = tree.getState();
+	uint32_t branches_count = state.getBranchesCount();
+	uint32_t branch_len = state.getBranchLen();
 
-		for(auto& neighbour : neighbours)
-		{
-			if(closed_set.count(neighbour._hash))
-				continue;
+	// Предварительное резервирование памяти
+	moves.reserve(branches_count * (branches_count - 1));
 
-			bool found = false;
-			for(const auto& node : all_nodes) 
-			{
-				if(node->_hash == neighbour._hash) 
-				{
-					if(neighbour.g < node->g) 
-					{
-						node->g = neighbour.g;
-						node->f = neighbour.f;
-						node->parent = neighbour.parent;
-						open_list.push(node.get());
-					}
-					found = true;
+	for(uint32_t src_branch = 0; src_branch < branches_count; ++src_branch) {
+		// Быстрая проверка на пустую ветку
+		if(state.at(src_branch, 0) == 0) continue;
+
+		// Находим последнюю птицу в исходной ветке
+		int src_pos = -1;
+		for(int j = branch_len - 1; j >= 0; --j) {
+			if(state.at(src_branch, j) != 0) {
+				src_pos = j;
+				break;
+			}
+		}
+		if(src_pos == -1) continue;
+
+		char bird = state.at(src_branch, src_pos);
+
+		for(uint32_t dst_branch = 0; dst_branch < branches_count; ++dst_branch) {
+			if(src_branch == dst_branch) continue;
+
+			// Находим первую свободную позицию в целевой ветке
+			int dst_pos = -1;
+			for(uint32_t j = 0; j < branch_len; ++j) {
+				if(state.at(dst_branch, j) == 0) {
+					dst_pos = j;
 					break;
 				}
 			}
+			if(dst_pos == -1) continue;
 
-			if(!found) 
-			{
-				all_nodes.push_back(std::make_unique<Node>(std::move(neighbour)));
-				open_list.push(all_nodes.back().get());
-			}
+			// Проверяем совместимость птиц
+			if(dst_pos > 0 && state.at(dst_branch, dst_pos - 1) != bird) continue;
+
+			moves.push_back({src_branch, static_cast<uint32_t>(src_pos),
+						   dst_branch, static_cast<uint32_t>(dst_pos), bird});
 		}
 	}
-	return 0;
+
+	return moves;
+}
+
+Tree AStarSolver::applyMove(const Tree& tree, const Move& move) const {
+	return Tree(tree, move);
+}
+
+void AStarSolver::processNeighbors(const Node& current_node,
+	std::priority_queue<Node, std::vector<Node>, std::greater<Node>>& open_list,
+	std::unordered_set<size_t>& closed_set,
+	std::vector<std::shared_ptr<Node>>& all_nodes) const {
+	auto moves = findPossibleMoves(current_node.getTree());
+
+	for(const auto& move : moves) {
+		Tree new_tree = applyMove(current_node.getTree(), move);
+		size_t new_hash = new_tree.getHash();
+
+		if(closed_set.count(new_hash)) continue;
+
+		auto new_node_ptr = std::make_shared<Node>(std::move(new_tree),
+			std::make_shared<Node>(current_node),
+			move, current_node.getG() + 1);
+
+		// TODO: оптимизировать поиск в open_list
+		// Временное решение - всегда добавлять
+		open_list.push(*new_node_ptr);
+		all_nodes.push_back(std::move(new_node_ptr));
+	}
+}
+
+// Вспомогательная функция для конвертации из старого формата
+TreeState convertToFlatTreeState(const std::vector<std::vector<char>>& state) {
+	if(state.empty()) return TreeState(0, 0, state);
+	return TreeState(state.size(), state[0].size(), state);
 }
