@@ -58,7 +58,7 @@ input_data_t DATA5 = {
 
 int main( void )
 {
-	input_data_t DATA = DATA4;
+	input_data_t DATA = DATA5;
 	auto start_state = TreeState(DATA.branches_on_tree, DATA.branch_len, DATA.TreeState);
 	auto Solver = AStarSolver(start_state);
 	GlobalSolver_p = &Solver;
@@ -66,7 +66,7 @@ int main( void )
 	printf("%d\n", ans.steps_amount);
 	for(uint32_t i = 0; i < ans.steps_amount; i++)
 	{
-		printf("%d \t%d \t%d \t%d\n", i+1, ans.Moves[i].src_branch, ans.Moves[i].dst_branch, ans.Moves[i].bird);
+		printf("%d \t%d \t%d \t%c\n", i+1, ans.Moves[i].src_branch, ans.Moves[i].dst_branch, 'A' + ans.Moves[i].bird);
 	}
 	system("pause");
 	return 0;

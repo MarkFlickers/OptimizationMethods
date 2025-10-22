@@ -1,9 +1,11 @@
+#pragma once
 #include <vector>
 #include <memory>
 #include <cstdint>
 #include <functional>
 #include <queue>
 #include <unordered_set>
+#include <unordered_map>
 
 
 struct Move {
@@ -30,25 +32,16 @@ private:
     void flatten(const std::vector<std::vector<char>>& state);
 
 public:
-    TreeState(void) = default;
+    TreeState() : branches_count_(0), branch_len_(0) {}
     TreeState(uint16_t branches, uint8_t branch_len, const std::vector<std::vector<char>>& state);
     TreeState(uint16_t branches, uint8_t branch_len, const std::vector<char>& flat_data);
-
-    void computeHash(void) const;
-    // Доступ к элементам
-    char& at(uint16_t branch, uint8_t pos) 
-    {
-        hash_computed_ = false;
-        return data_[branch * branch_len_ + pos];
-    }
-    const char& at(uint16_t branch, uint8_t pos) const { return data_[branch * branch_len_ + pos]; }
-
-    // Получение сырых данных
+    void computeHash() const;
+    char& at(uint16_t branch, uint8_t pos);
+    const char& at(uint16_t branch, uint8_t pos) const;
     const std::vector<char>& getData() const { return data_; }
     uint16_t getBranchesCount() const { return branches_count_; }
     uint8_t getBranchLen() const { return branch_len_; }
     size_t getHash() const;
-
     bool operator==(const TreeState& other) const;
 };
 
@@ -56,19 +49,29 @@ class Tree {
 private:
     TreeState state_;
     size_t unperfectness_;
+    //size_t current_L_;  // Количество полностью собранных веток
+    //size_t max_L_;      // Максимально возможное количество собранных веток
 
     size_t computeUnperfectnessIncremental(const Tree& parent, const Move& move);
     void computeUnperfectness();
-    size_t computeBranchUnperfectness(uint32_t branch_index);
+
+    //void computeCurrentL();
+    //void computeMaxL();
+    //bool isBranchComplete(uint16_t branch_index) const;
 
 public:
+    Tree() : state_(), unperfectness_(0) {} // Конструктор по умолчанию
     Tree(const TreeState& state);
     Tree(const Tree& parent, const Move& move);
 
     const TreeState& getState() const { return state_; }
     size_t getUnperfectness() const { return unperfectness_; }
     size_t getHash() const { return state_.getHash(); }
-
+    //size_t getCurrentL() const { return current_L_; }
+    //size_t getMaxL() const { return max_L_; }
+    //size_t getHash() const { return state_.getHash(); }
+    //bool isTargetState() const { return current_L_ == max_L_; }
+    bool isTargetState() const { return unperfectness_ == 0; }
     bool operator==(const Tree& other) const;
 };
 
@@ -77,49 +80,58 @@ private:
     Tree tree_;
     int g_;
     size_t f_;
-    std::shared_ptr<Node> parent_;
+    Node* parent_;
     Move move_;
+    size_t hash_;
 
 public:
-    Node(Tree&& tree, std::shared_ptr<Node> parent, const Move& move, int g);
+    Node() : tree_(), g_(0), f_(0), parent_(nullptr), move_(), hash_(0) {}
+    Node(Tree&& tree, Node* parent, const Move& move, int g);
 
     const Tree& getTree() const { return tree_; }
     int getG() const { return g_; }
     size_t getF() const { return f_; }
-    std::shared_ptr<Node> getParent() const { return parent_; }
+    Node* getParent() const { return parent_; }
     const Move& getMove() const { return move_; }
-    size_t getHash() const { return tree_.getHash(); }
+    size_t getHash() const { return hash_; }
 
     bool operator>(const Node& other) const;
+};
+
+class NodePool
+{
+private:
+    std::vector<std::unique_ptr<Node>> nodes_;
+    size_t next_index_ = 0;
+
+public:
+    void initialize(size_t capacity);
+    Node* createNode(Tree&& tree, Node* parent, const Move& move, int g);
+    void reset(void);
 };
 
 class AStarSolver {
 private:
     TreeState start_state_;
-    mutable std::vector<size_t> branch_unperfectness_cache_;
-    mutable std::vector<bool> branch_cache_valid_;
     mutable std::unordered_map<size_t, std::vector<Move>> moves_cache_;
-    mutable std::unordered_map<size_t, std::shared_ptr<Node>> node_registry_;
-    size_t branch_cache_size_ = 0;
+    mutable std::unordered_map<size_t, std::unordered_map<size_t, Tree>> apply_move_cache_;
+    mutable std::unordered_map<size_t, Node*> node_registry_;
+    NodePool node_pool_;
+
+    static constexpr int MAX_DEPTH = 1000;
+    static constexpr size_t CACHE_CLEANUP_THRESHOLD = 50000;
+
+    Tree applyMoveWithCache(const Tree& tree, const Move& move);
+    size_t hashMove(const Move& move) const;
+    bool shouldPrune(const Node& node) const;
+    bool registerNode(Node* node);
+    void cleanupCaches();
+    std::vector<Move> findPossibleMovesOptimized(const Tree& tree) const;
 
 public:
     AStarSolver(const TreeState& start_state);
     SolvedTree solve();
-    std::vector<Move> findPossibleMoves(const Tree& tree) const;
     Tree applyMove(const Tree& tree, const Move& move) const;
-    std::vector<Move> findPossibleMovesWithCache(const Tree& tree) const;
-
-private:
-    void initializeBranchCache(uint32_t max_branches, uint32_t branch_len);
-    size_t computeBranchUnperfectnessWithCache(uint32_t branch_index, const TreeState& state);
-
-    void processNeighbors(const Node& current_node,
-        std::priority_queue<Node, std::vector<Node>, std::greater<Node>>& open_list,
-        std::unordered_set<size_t>& closed_set,
-        std::vector<std::shared_ptr<Node>>& all_nodes) const;
-
-    bool registerNode(const std::shared_ptr<Node>& node);
-
 };
 
 size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index);

@@ -70,6 +70,17 @@ void TreeState::computeHash(void) const
 	}
 }
 
+char& TreeState::at(uint16_t branch, uint8_t pos)
+{
+	hash_computed_ = false;
+	return data_[branch * branch_len_ + pos];
+}
+
+const char& TreeState::at(uint16_t branch, uint8_t pos) const
+{
+	return data_[branch * branch_len_ + pos];
+}
+
 size_t TreeState::getHash() const
 {
 	computeHash();
@@ -133,36 +144,15 @@ void Tree::computeUnperfectness()
 	}
 }
 
-size_t Tree::computeBranchUnperfectness(uint32_t branch_index)
-{
-	if(state_.at(branch_index, 0) == 0) return 0;
-
-	const int MAX_BIRD_TYPES = 26;
-	uint32_t freq[MAX_BIRD_TYPES] = {0};
-	uint32_t max_freq = 0;
-
-	for(uint32_t j = 0; j < state_.getBranchLen(); ++j)
-	{
-		char bird = state_.at(branch_index, j);
-		if(bird != 0)
-		{
-			freq[bird]++;
-		}
-	}
-	for(uint8_t i = 0; i < MAX_BIRD_TYPES; i++)
-	{
-		if(freq[i] > max_freq)
-			max_freq = freq[i];
-	}
-
-	return state_.getBranchLen() - max_freq;
-}
-
 // Node implementation
-Node::Node(Tree&& tree, std::shared_ptr<Node> parent, const Move& move, int g)
-	: tree_(std::move(tree)), parent_(parent), move_(move), g_(g)
+Node::Node(Tree&& tree, Node* parent, const Move& move, int g)
+	: tree_(std::move(tree)), parent_(parent), move_(move), g_(g),
+	hash_(tree_.getHash())
 {
-	f_ = g_ + tree_.getUnperfectness();
+	// Эвристика: штраф за недособранные ветки
+	//size_t h = (tree_.getMaxL() - tree_.getCurrentL()) * 100 * tree_.getState().getBranchLen();
+	size_t h = tree_.getUnperfectness();
+	f_ = g_ + h;
 }
 
 bool Node::operator>(const Node& other) const
@@ -170,68 +160,127 @@ bool Node::operator>(const Node& other) const
 	return f_ > other.f_;
 }
 
+void NodePool::initialize(size_t capacity)
+{
+	nodes_.reserve(capacity);
+	for(size_t i = 0; i < capacity; ++i)
+	{
+		nodes_.push_back(std::make_unique<Node>());
+	}
+}
+
+Node* NodePool::createNode(Tree&& tree, Node* parent, const Move& move, int g)
+{
+	if(next_index_ >= nodes_.size())
+	{
+		nodes_.push_back(std::make_unique<Node>(std::move(tree), parent, move, g));
+		return nodes_.back().get();
+	}
+
+	Node* node = nodes_[next_index_++].get();
+	new (node) Node(std::move(tree), parent, move, g);
+	return node;
+}
+
+void NodePool::reset()
+{
+	next_index_ = 0;
+}
+
 // AStarSolver implementation
-AStarSolver::AStarSolver(const TreeState& start_state)
-	: start_state_(start_state)
-{}
+AStarSolver::AStarSolver(const TreeState& start_state) : start_state_(start_state)
+{
+	node_pool_.initialize(1000000); // 1 миллион узлов
+}
 
 SolvedTree AStarSolver::solve()
 {
+	// Очищаем кэши
+	moves_cache_.clear();
+	apply_move_cache_.clear();
+	node_registry_.clear();
+	node_pool_.reset();
+
 	Tree start_tree(start_state_);
-	auto start_node = std::make_shared<Node>(std::move(start_tree), nullptr, Move{}, 0);
+	Node* start_node = node_pool_.createNode(std::move(start_tree), nullptr, Move{}, 0);
+	node_registry_[start_node->getHash()] = start_node;
 
-	auto compare = [](const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
-		return a->getF() > b->getF();
-	};
-
-	std::priority_queue<std::shared_ptr<Node>,
-		std::vector<std::shared_ptr<Node>>,
-		decltype(compare)> open_list(compare);
-
+	auto compare = [](Node* a, Node* b) { return a->getF() > b->getF(); };
+	std::priority_queue<Node*, std::vector<Node*>, decltype(compare)> open_list(compare);
 	open_list.push(start_node);
 
 	std::unordered_set<size_t> closed_set;
-	std::vector<std::shared_ptr<Node>> all_nodes;
-	all_nodes.push_back(start_node);
+	int nodes_processed = 0;
 
 	while(!open_list.empty())
 	{
-		auto current_node = open_list.top();
+		Node* current_node = open_list.top();
 		open_list.pop();
 
-		if(closed_set.count(current_node->getHash())) continue;
-
-		if(current_node->getTree().getUnperfectness() == 0)
+		// Периодическая очистка кэшей
+		if(nodes_processed % 10000 == 0)
 		{
-			SolvedTree answer = {0};
-			auto current = current_node;
-			while(current->getParent() != nullptr)
+			cleanupCaches();
+		}
+
+		if(closed_set.count(current_node->getHash()))
+		{
+			continue;
+		}
+
+		if(current_node->getTree().isTargetState())
+		{
+			SolvedTree solution{0};
+			const Node* current = current_node;
+			while(current != nullptr && current->getParent() != nullptr)
 			{
-				answer.Moves.insert(answer.Moves.begin(), current->getMove());
-				answer.steps_amount++;
+				solution.Moves.insert(solution.Moves.begin(), current->getMove());
+				solution.steps_amount++;
 				current = current->getParent();
 			}
-			return answer;
+			return solution;
+		}
+
+		if(shouldPrune(*current_node))
+		{
+			continue;
 		}
 
 		closed_set.insert(current_node->getHash());
-		//processNeighbors(current_node, open_list, closed_set, all_nodes);
-		auto moves = findPossibleMovesWithCache(current_node->getTree());
+		nodes_processed++;
+
+		// Используем оптимизированную версию поиска ходов
+		auto moves = findPossibleMovesOptimized(current_node->getTree());
 
 		for(const auto& move : moves)
 		{
-			Tree new_tree = applyMove(current_node->getTree(), move);
+			Tree new_tree = applyMoveWithCache(current_node->getTree(), move);
 			size_t new_hash = new_tree.getHash();
+			int new_g = current_node->getG() + 1;
 
-			if(closed_set.count(new_hash)) continue;
-
-			auto new_node = std::make_shared<Node>(std::move(new_tree),
-				current_node, move,
-				current_node->getG() + 1);
-
-			if(registerNode(new_node))
+			if(closed_set.count(new_hash))
 			{
-				open_list.push(new_node);
+				continue;
+			}
+
+			auto it = node_registry_.find(new_hash);
+			if(it != node_registry_.end())
+			{
+				Node* existing_node = it->second;
+				if(new_g < existing_node->getG())
+				{
+					// Обновляем существующий узел
+					*existing_node = Node(std::move(new_tree), current_node, move, new_g);
+					open_list.push(existing_node);
+				}
+			}
+			else
+			{
+				Node* new_node = node_pool_.createNode(std::move(new_tree), current_node, move, new_g);
+				if(registerNode(new_node))
+				{
+					open_list.push(new_node);
+				}
 			}
 		}
 	}
@@ -239,84 +288,24 @@ SolvedTree AStarSolver::solve()
 	return SolvedTree{0};
 }
 
-bool AStarSolver::registerNode(const std::shared_ptr<Node>& node)
+bool AStarSolver::registerNode(Node* node)
 {
 	size_t hash = node->getHash();
 	auto it = node_registry_.find(hash);
 
 	if(it != node_registry_.end())
 	{
-		// Узел с таким хэшем уже существует
 		if(it->second->getG() <= node->getG())
 		{
-			return false; // Существующий узел не хуже
+			return false;
 		}
-		// Новый узел лучше - обновляем регистр
 		it->second = node;
-		return true;
 	}
 	else
 	{
-		// Новый узел - добавляем в регистр
 		node_registry_[hash] = node;
-		return true;
 	}
-}
-
-std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const
-{
-	std::vector<Move> moves;
-	const auto& state = tree.getState();
-	uint16_t branches_count = state.getBranchesCount();
-	uint8_t branch_len = state.getBranchLen();
-
-	// Предварительное резервирование памяти
-	moves.reserve(branches_count * (branches_count - 1));
-
-	for(uint16_t src_branch = 0; src_branch < branches_count; ++src_branch)
-	{
-		// Быстрая проверка на пустую ветку
-		if(state.at(src_branch, 0) == 0) continue;
-
-		// Находим последнюю птицу в исходной ветке
-		int8_t src_pos = -1;
-		for(int8_t j = branch_len - 1; j >= 0; --j)
-		{
-			if(state.at(src_branch, j) != 0)
-			{
-				src_pos = j;
-				break;
-			}
-		}
-		if(src_pos == -1) continue;
-
-		char bird = state.at(src_branch, src_pos);
-
-		for(uint16_t dst_branch = 0; dst_branch < branches_count; ++dst_branch)
-		{
-			if(src_branch == dst_branch) continue;
-
-			// Находим первую свободную позицию в целевой ветке
-			int8_t dst_pos = -1;
-			for(int8_t j = 0; j < branch_len; ++j)
-			{
-				if(state.at(dst_branch, j) == 0)
-				{
-					dst_pos = j;
-					break;
-				}
-			}
-			if(dst_pos == -1) continue;
-
-			// Проверяем совместимость птиц
-			if(dst_pos > 0 && state.at(dst_branch, dst_pos - 1) != bird) continue;
-
-			moves.push_back({src_branch, static_cast<uint8_t>(src_pos),
-						   dst_branch, static_cast<uint8_t>(dst_pos), bird});
-		}
-	}
-
-	return moves;
+	return true;
 }
 
 Tree AStarSolver::applyMove(const Tree& tree, const Move& move) const
@@ -324,74 +313,112 @@ Tree AStarSolver::applyMove(const Tree& tree, const Move& move) const
 	return Tree(tree, move);
 }
 
-void AStarSolver::processNeighbors(const Node& current_node,
-	std::priority_queue<Node, std::vector<Node>, std::greater<Node>>& open_list,
-	std::unordered_set<size_t>& closed_set,
-	std::vector<std::shared_ptr<Node>>& all_nodes) const
-{
-	auto moves = findPossibleMovesWithCache(current_node.getTree());
-
-	for(const auto& move : moves)
-	{
-		Tree new_tree = applyMove(current_node.getTree(), move);
-		size_t new_hash = new_tree.getHash();
-
-		if(closed_set.count(new_hash)) continue;
-
-		auto new_node_ptr = std::make_shared<Node>(std::move(new_tree),
-			std::make_shared<Node>(current_node),
-			move, current_node.getG() + 1);
-
-		// TODO: оптимизировать поиск в open_list
-		// Временное решение - всегда добавлять
-		open_list.push(*new_node_ptr);
-		all_nodes.push_back(std::move(new_node_ptr));
-	}
+Tree AStarSolver::applyMoveWithCache(const Tree& tree, const Move& move) {
+    size_t tree_hash = tree.getHash();
+    size_t move_hash = hashMove(move);
+    
+    auto tree_it = apply_move_cache_.find(tree_hash);
+    if (tree_it != apply_move_cache_.end()) {
+        auto move_it = tree_it->second.find(move_hash);
+        if (move_it != tree_it->second.end()) {
+            return move_it->second;
+        }
+    }
+    
+    Tree result = applyMove(tree, move);
+    apply_move_cache_[tree_hash][move_hash] = result;
+    return result;
 }
 
-std::vector<Move> AStarSolver::findPossibleMovesWithCache(const Tree& tree) const
-{
-	size_t tree_hash = tree.getHash();
-	auto it = moves_cache_.find(tree_hash);
-	if(it != moves_cache_.end())
-	{
-		return it->second;
-	}
-
-	std::vector<Move> moves = findPossibleMoves(tree);
-	moves_cache_[tree_hash] = moves;
-	return moves;
+size_t AStarSolver::hashMove(const Move& move) const {
+    return (static_cast<size_t>(move.src_branch) << 24) | 
+           (static_cast<size_t>(move.src_pos) << 16) | 
+           (static_cast<size_t>(move.dst_branch) << 8) | 
+           static_cast<size_t>(move.dst_pos);
 }
 
-void AStarSolver::initializeBranchCache(uint32_t max_branches, uint32_t branch_len)
-{
-	branch_cache_size_ = max_branches * (1 << (branch_len * 2)); // Эвристика размера
-	branch_unperfectness_cache_.resize(branch_cache_size_, 0);
-	branch_cache_valid_.resize(branch_cache_size_, false);
+bool AStarSolver::shouldPrune(const Node& node) const {
+    return node.getG() > MAX_DEPTH;
 }
 
-size_t AStarSolver::computeBranchUnperfectnessWithCache(uint32_t branch_index, const TreeState& state)
-{
-	const char* branch_data = &state.getData()[branch_index * state.getBranchLen()];
-	size_t branch_hash = computeBranchHash(branch_data, state.getBranchLen()) % branch_cache_size_;
-
-	if(branch_cache_valid_[branch_hash])
-	{
-		return branch_unperfectness_cache_[branch_hash];
-	}
-
-	size_t result = computeBranchUnperfectness(state, branch_index);
-	branch_unperfectness_cache_[branch_hash] = result;
-	branch_cache_valid_[branch_hash] = true;
-	return result;
+void AStarSolver::cleanupCaches() {
+    if (moves_cache_.size() > CACHE_CLEANUP_THRESHOLD) {
+        moves_cache_.clear();
+    }
+    if (apply_move_cache_.size() > CACHE_CLEANUP_THRESHOLD) {
+        apply_move_cache_.clear();
+    }
 }
 
+std::vector<Move> AStarSolver::findPossibleMovesOptimized(const Tree& tree) const {
+    size_t tree_hash = tree.getHash();
+    auto it = moves_cache_.find(tree_hash);
+    if (it != moves_cache_.end()) {
+        return it->second;
+    }
 
-// Вспомогательная функция для конвертации из старого формата
-TreeState convertToFlatTreeState(const std::vector<std::vector<char>>& state)
-{
-	if(state.empty()) return TreeState(0, 0, state);
-	return TreeState(state.size(), state[0].size(), state);
+    std::vector<Move> moves;
+    const auto& state = tree.getState();
+    uint16_t branches_count = state.getBranchesCount();
+    uint8_t branch_len = state.getBranchLen();
+
+    // Предварительно вычисляем информацию о ветках
+    struct BranchInfo {
+        int8_t last_bird_pos = -1;
+        char last_bird = 0;
+        std::vector<uint8_t> free_positions;
+    };
+    
+    std::vector<BranchInfo> branches_info(branches_count);
+    
+    // Собираем информацию о ветках за один проход
+    for (uint16_t i = 0; i < branches_count; ++i) {
+        auto& info = branches_info[i];
+        
+        // Ищем последнюю птицу
+        for (int8_t j = branch_len - 1; j >= 0; --j) {
+            if (state.at(i, j) != 0) {
+                info.last_bird_pos = j;
+                info.last_bird = state.at(i, j);
+                break;
+            }
+        }
+        
+        // Ищем свободные позиции
+        for (uint8_t j = 0; j < branch_len; ++j) {
+            if (state.at(i, j) == 0) {
+                info.free_positions.push_back(j);
+            }
+        }
+    }
+
+    // Генерируем ходы только для релевантных пар веток
+    moves.reserve(branches_count * (branches_count - 1));
+    
+    for (uint16_t src = 0; src < branches_count; ++src) {
+        const auto& src_info = branches_info[src];
+        if (src_info.last_bird_pos == -1) continue;
+        
+        for (uint16_t dst = 0; dst < branches_count; ++dst) {
+            if (src == dst) continue;
+            if (branches_info[dst].free_positions.empty()) continue;
+            
+            uint8_t dst_pos = branches_info[dst].free_positions[0];
+            
+            // Проверяем совместимость птиц
+            if (dst_pos > 0 && state.at(dst, dst_pos - 1) != src_info.last_bird) {
+                continue;
+            }
+            
+            moves.push_back({
+                src, static_cast<uint8_t>(src_info.last_bird_pos),
+                dst, dst_pos, src_info.last_bird
+            });
+        }
+    }
+    
+    moves_cache_[tree_hash] = moves;
+    return moves;
 }
 
 size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index)
