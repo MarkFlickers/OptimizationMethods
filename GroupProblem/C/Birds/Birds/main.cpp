@@ -58,7 +58,7 @@ input_data_t DATA5 = {
 
 int main( void )
 {
-	input_data_t DATA = DATA5;
+	input_data_t DATA = DATA2;
 	auto start_state = TreeState(DATA.branches_on_tree, DATA.branch_len, DATA.TreeState);
 	auto Solver = AStarSolver(start_state);
 	GlobalSolver_p = &Solver;
