@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <memory>
+#include <array>
 #include "AStar.h"
 
 namespace std {
@@ -36,7 +37,6 @@ TreeState::TreeState(const std::vector<std::vector<char>>& state)
     total_branches_ = static_cast<uint16_t>(state.size());
     branch_len_ = static_cast<uint8_t>(state[0].size());
 
-    // Применяем нормализацию
     normalizeBirds();
     sortBranches();
     computeHash();
@@ -44,8 +44,9 @@ TreeState::TreeState(const std::vector<std::vector<char>>& state)
 
 void TreeState::normalizeBirds(void)
 {
-    std::unordered_map<char, char> type_map;
-    char next_type = 1;  // 0 зарезервирован для пустоты
+    std::array<char, 256> type_map;
+    type_map.fill(0);
+    char next_type = 1;
 
     for(auto& branch : branches_)
     {
@@ -53,11 +54,12 @@ void TreeState::normalizeBirds(void)
         {
             if(bird != 0)
             {
-                if(type_map.find(bird) == type_map.end())
+                unsigned char ub = static_cast<unsigned char>(bird);
+                if(type_map[ub] == 0)
                 {
-                    type_map[bird] = next_type++;
+                    type_map[ub] = next_type++;
                 }
-                bird = type_map[bird];
+                bird = type_map[ub];
             }
         }
     }
@@ -81,7 +83,7 @@ bool TreeState::isBranchEmpty(const std::vector<char>& branch) const
 
 int TreeState::compareBranches(const std::vector<char>& a, const std::vector<char>& b) const
 {
-    // Пустые ветки идут в конце
+	// Empty branches in the end
     bool a_empty = isBranchEmpty(a);
     bool b_empty = isBranchEmpty(b);
 
@@ -89,7 +91,7 @@ int TreeState::compareBranches(const std::vector<char>& a, const std::vector<cha
     if(!a_empty && b_empty) return -1;
     if(a_empty && b_empty) return 0;
 
-    // Лексикографическое сравнение
+	// Lexicographical comparison
     for(uint8_t i = 0; i < branch_len_; ++i)
     {
         if(a[i] != b[i])
@@ -118,10 +120,8 @@ void TreeState::computeHash() const
 
 TreeState TreeState::applyMove(const Move& move) const
 {
-    // Создаем копию текущего состояния
     TreeState new_state = *this;
 
-    // Применяем ход
     auto& src_branch = new_state.branches_[move.src_branch];
     auto& dst_branch = new_state.branches_[move.dst_branch];
 
@@ -129,11 +129,9 @@ TreeState TreeState::applyMove(const Move& move) const
     src_branch[move.src_pos] = 0;
     dst_branch[move.dst_pos] = bird_to_move;
 
-    // Перенормализуем и отсортируем
     new_state.normalizeBirds();
     new_state.sortBranches();
     new_state.hash_computed_ = false;
-    new_state.computeHash();
 
     return new_state;
 }
@@ -160,25 +158,25 @@ bool Tree::operator==(const Tree& other) const
     return state_ == other.state_;
 }
 
-size_t Tree::computeUnperfectnessIncremental(const Tree& parent, const Move& move)
-{
-    size_t delta = 0;
-
-    delta -= ::computeBranchUnperfectnessWithCache(parent.state_, move.src_branch);
-    delta -= ::computeBranchUnperfectnessWithCache(parent.state_, move.dst_branch);
-
-    delta += ::computeBranchUnperfectnessWithCache(state_, move.src_branch);
-    delta += ::computeBranchUnperfectnessWithCache(state_, move.dst_branch);
-
-    return parent.unperfectness_ + delta;
-}
-
 void Tree::computeUnperfectness()
 {
     unperfectness_ = 0;
-    for(uint16_t i = 0; i < state_.getTotalBranches(); ++i)
+    for(const auto& branch : state_.getBranches())
     {
-        unperfectness_ += computeBranchUnperfectnessWithCache(state_, i);
+        if(branch[0] == 0) continue;
+
+        char first_bird = branch[0];
+        size_t same_count = 1;
+
+        for(size_t j = 1; j < branch.size(); ++j)
+        {
+            if(branch[j] == first_bird)
+            {
+                same_count++;
+            }
+        }
+
+        unperfectness_ += branch.size() - same_count;
     }
 }
 
@@ -187,6 +185,14 @@ Node::Node(Tree&& tree, Node* parent, const Move& move, int g)
     : tree_(std::move(tree)), parent_(parent), move_(move), g_(g),
     hash_(tree_.getHash())
 {
+    f_ = g_ + tree_.getUnperfectness();
+}
+
+void Node::update(Node* parent, const Move& move, int g)
+{
+    parent_ = parent;
+    move_ = move;
+    g_ = g;
     f_ = g_ + tree_.getUnperfectness();
 }
 
@@ -201,16 +207,20 @@ AStarSolver::AStarSolver(const TreeState& start_state) : start_state_(start_stat
 SolvedTree AStarSolver::solve()
 {
     node_registry_.clear();
+    node_registry_.reserve(16384);
 
     Tree start_tree(start_state_);
     Node* start_node = new Node(std::move(start_tree), nullptr, Move{}, 0);
     node_registry_[start_node->getHash()] = start_node;
 
     auto compare = [](Node* a, Node* b) { return a->getF() > b->getF(); };
-    std::priority_queue<Node*, std::vector<Node*>, decltype(compare)> open_list(compare);
+    std::vector<Node*> open_container;
+    open_container.reserve(16384);
+    std::priority_queue<Node*, std::vector<Node*>, decltype(compare)> open_list(compare, std::move(open_container));
     open_list.push(start_node);
 
     std::unordered_set<size_t> closed_set;
+    closed_set.reserve(16384);
 
     while(!open_list.empty())
     {
@@ -246,9 +256,9 @@ SolvedTree AStarSolver::solve()
 
         for(const auto& move : moves)
         {
+			// Creater new state by applying the move
             TreeState new_state = current_node->getTree().getState().applyMove(move);
-            Tree new_tree(new_state);
-            size_t new_hash = new_tree.getHash();
+            size_t new_hash = new_state.getHash();
             int new_g = current_node->getG() + 1;
 
             if(closed_set.count(new_hash))
@@ -260,14 +270,27 @@ SolvedTree AStarSolver::solve()
             if(it != node_registry_.end())
             {
                 Node* existing_node = it->second;
-                if(new_g < existing_node->getG())
+				// If the states are equal, check if we found a better path
+                if(existing_node->getTree().getState() == new_state)
                 {
+                    if(new_g < existing_node->getG())
+                    {
+						// Update existing node with better path
+                        existing_node->update(current_node, move, new_g);
+                        open_list.push(existing_node);
+                    }
+                }
+                else
+                {
+					// Hash collision detected, create a new node
+                    Tree new_tree(new_state);
                     *existing_node = Node(std::move(new_tree), current_node, move, new_g);
                     open_list.push(existing_node);
                 }
             }
             else
             {
+                Tree new_tree(new_state);
                 Node* new_node = new Node(std::move(new_tree), current_node, move, new_g);
                 node_registry_[new_hash] = new_node;
                 open_list.push(new_node);
@@ -289,7 +312,7 @@ bool AStarSolver::registerNode(Node* node)
         {
             return false;
         }
-        delete it->second;  // Удаляем старый узел
+        delete it->second;
         it->second = node;
     }
     else
@@ -312,112 +335,60 @@ std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const
     uint16_t branches_count = state.getTotalBranches();
     uint8_t branch_len = state.getBranchLen();
 
-    // Кэшируем информацию о ветках
-    std::vector<int8_t> last_bird_pos(branches_count, -1);
-    std::vector<int8_t> first_free_pos(branches_count, -1);
+	moves.reserve(branches_count * 8); // Some arbitrary number to reduce reallocations
 
-    // Однократный проход для сбора информации
-    for(uint16_t i = 0; i < branches_count; ++i)
-    {
-        const auto& branch = branches[i];
-
-        // Ищем последнюю птицу
-        for(int8_t j = branch_len - 1; j >= 0; --j)
-        {
-            if(branch[j] != 0)
-            {
-                last_bird_pos[i] = j;
-                break;
-            }
-        }
-
-        // Ищем первую свободную позицию
-        for(uint8_t j = 0; j < branch_len; ++j)
-        {
-            if(branch[j] == 0)
-            {
-                first_free_pos[i] = j;
-                break;
-            }
-        }
-    }
-
-    // Генерируем ходы для всех пар веток
     for(uint16_t src = 0; src < branches_count; ++src)
     {
-        if(last_bird_pos[src] == -1) continue;
+        const auto& src_branch = branches[src];
+
+		// Skip empty branches
+        if(src_branch[0] == 0) continue;
+
+		// Find the topmost bird in the source branch
+        int8_t src_pos = -1;
+        for(int8_t j = branch_len - 1; j >= 0; --j)
+        {
+            if(src_branch[j] != 0)
+            {
+                src_pos = j;
+                break;
+            }
+        }
+        if(src_pos == -1) continue;
+
+        char bird_to_move = src_branch[src_pos];
 
         for(uint16_t dst = 0; dst < branches_count; ++dst)
         {
             if(src == dst) continue;
-            if(first_free_pos[dst] == -1) continue;
 
-            const auto& src_branch = branches[src];
             const auto& dst_branch = branches[dst];
-            char bird_to_move = src_branch[last_bird_pos[src]];
 
-            // Проверяем совместимость птиц
-            if(first_free_pos[dst] > 0 &&
-                dst_branch[first_free_pos[dst] - 1] != bird_to_move)
+			// Find the first empty position in the destination branch
+            int8_t dst_pos = -1;
+            for(uint8_t j = 0; j < branch_len; ++j)
+            {
+                if(dst_branch[j] == 0)
+                {
+                    dst_pos = j;
+                    break;
+                }
+            }
+            if(dst_pos == -1) continue;
+
+			// Check the movement rules
+            if(dst_pos > 0 && dst_branch[dst_pos - 1] != bird_to_move)
             {
                 continue;
             }
 
             moves.push_back({
-                src, static_cast<uint8_t>(last_bird_pos[src]),
-                dst, static_cast<uint8_t>(first_free_pos[dst]),
+                src, static_cast<uint8_t>(src_pos),
+                dst, static_cast<uint8_t>(dst_pos),
                 bird_to_move
                 });
         }
     }
 
     return moves;
-}
-
-size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index)
-{
-    static std::unordered_map<size_t, size_t> branch_unperfectness_cache_ = {};
-
-    const std::vector<char> & branch_data = state.getBranches().at(branch_index);
-    size_t branch_hash = computeBranchHash(branch_data, state.getBranchLen());
-
-    auto it = branch_unperfectness_cache_.find(branch_hash);
-    if(it != branch_unperfectness_cache_.end())
-    {
-        return it->second;
-    }
-
-    size_t result = computeBranchUnperfectness(branch_data, state.getBranchLen());
-    branch_unperfectness_cache_[branch_hash] = result;
-    return result;
-}
-
-size_t computeBranchHash(const std::vector<char> &branch_data, uint8_t branch_len)
-{
-    size_t h = 0;
-    for(uint32_t i = 0; i < branch_len; ++i)
-    {
-        h = h * 31 + static_cast<size_t>(branch_data[i]);
-    }
-    return h;
-}
-
-size_t computeBranchUnperfectness(const std::vector<char> &branch_data, uint8_t branch_len)
-{
-    if(branch_data[0] == 0) return 0;
-
-    const int MAX_BIRD_TYPES = 26;
-    uint16_t freq[MAX_BIRD_TYPES] = {0};
-    uint16_t max_freq = 0;
-
-    for(uint8_t j = 0; j < branch_len; ++j)
-    {
-        char bird = branch_data[j];
-        if(bird != 0)
-        {
-            max_freq = std::max(max_freq, ++freq[bird]);
-        }
-    }
-
-    return branch_len - max_freq;
 }

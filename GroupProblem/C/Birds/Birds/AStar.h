@@ -30,7 +30,6 @@ private:
 
     void normalizeBirds();
     void sortBranches();
-    char getBirdTypeMapping(char bird, std::unordered_map<char, char>& type_map, char& next_type);
     bool isBranchEmpty(const std::vector<char>& branch) const;
     int compareBranches(const std::vector<char>& a, const std::vector<char>& b) const;
 
@@ -39,8 +38,6 @@ public:
     TreeState(const std::vector<std::vector<char>>& state);
 
     void computeHash() const;
-    //char& at(uint16_t branch, uint8_t pos);
-    //const char& at(uint16_t branch, uint8_t pos) const;
     const std::vector<std::vector<char>>& getBranches() const { return branches_; }
     uint16_t getTotalBranches() const { return total_branches_; }
     uint8_t getBranchLen() const { return branch_len_; }
@@ -56,7 +53,6 @@ private:
 
     size_t computeUnperfectnessIncremental(const Tree& parent, const Move& move);
     void computeUnperfectness();
-    bool isBranchComplete(uint16_t branch_index) const;
 
 public:
     Tree() = default;
@@ -64,7 +60,6 @@ public:
     Tree(const Tree& parent, const Move& move);
 
     const TreeState& getState() const { return state_; }
-    //size_t getCurrentL() const { return current_L_; }
     size_t getUnperfectness() const { return unperfectness_; }
     size_t getHash() const { return state_.getHash(); }
     bool isTargetState() const { return unperfectness_ == 0; }
@@ -90,6 +85,7 @@ public:
     Node* getParent() const { return parent_; }
     const Move& getMove() const { return move_; }
     size_t getHash() const { return hash_; }
+    void update(Node* parent, const Move& move, int g);
 
     bool operator>(const Node& other) const;
 };
@@ -109,7 +105,3 @@ public:
     AStarSolver(const TreeState& start_state);
     SolvedTree solve();
 };
-
-size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index);
-size_t computeBranchUnperfectness(const std::vector<char> &branch_data, uint8_t branch_len);
-size_t computeBranchHash(const std::vector<char> &branch_data, uint8_t branch_len);
