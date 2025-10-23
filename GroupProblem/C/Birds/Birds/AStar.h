@@ -22,24 +22,31 @@ struct SolvedTree {
 
 class TreeState {
 private:
-    std::vector<char> data_;
-    uint16_t branches_count_;
+    std::vector<std::vector<char>> branches_;
+    uint16_t total_branches_;
     uint8_t branch_len_;
-    mutable size_t hash_;
+    mutable size_t hash_ = 0;
     mutable bool hash_computed_ = false;
 
+    void normalizeBirds();
+    void sortBranches();
+    char getBirdTypeMapping(char bird, std::unordered_map<char, char>& type_map, char& next_type);
+    bool isBranchEmpty(const std::vector<char>& branch) const;
+    int compareBranches(const std::vector<char>& a, const std::vector<char>& b) const;
+
 public:
-    TreeState() : branches_count_(0), branch_len_(0) {}
-    TreeState(uint16_t branches, uint8_t branch_len, const std::vector<std::vector<char>>& state);
+    TreeState() = default;
+    TreeState(const std::vector<std::vector<char>>& state);
 
     void computeHash() const;
-    char& at(uint16_t branch, uint8_t pos);
-    const char& at(uint16_t branch, uint8_t pos) const;
-    const std::vector<char>& getData() const { return data_; }
-    uint16_t getBranchesCount() const { return branches_count_; }
+    //char& at(uint16_t branch, uint8_t pos);
+    //const char& at(uint16_t branch, uint8_t pos) const;
+    const std::vector<std::vector<char>>& getBranches() const { return branches_; }
+    uint16_t getTotalBranches() const { return total_branches_; }
     uint8_t getBranchLen() const { return branch_len_; }
     size_t getHash() const;
     bool operator==(const TreeState& other) const;
+    TreeState applyMove(const Move& move) const;
 };
 
 class Tree {
@@ -52,7 +59,7 @@ private:
     bool isBranchComplete(uint16_t branch_index) const;
 
 public:
-    Tree() : state_(), unperfectness_(0) {}
+    Tree() = default;
     Tree(const TreeState& state);
     Tree(const Tree& parent, const Move& move);
 
@@ -74,7 +81,7 @@ private:
     size_t hash_;
 
 public:
-    Node() : tree_(), g_(0), f_(0), parent_(nullptr), move_(), hash_(0) {}
+    Node() = default;
     Node(Tree&& tree, Node* parent, const Move& move, int g);
 
     const Tree& getTree() const { return tree_; }
@@ -96,14 +103,13 @@ private:
 
     bool shouldPrune(const Node& node) const;
     bool registerNode(Node* node);
-    std::vector<Move> findPossibleMovesOptimized(const Tree& tree) const;
+    std::vector<Move> findPossibleMoves(const Tree& tree) const;
 
 public:
     AStarSolver(const TreeState& start_state);
     SolvedTree solve();
-    Tree applyMove(const Tree& tree, const Move& move) const;
 };
 
 size_t computeBranchUnperfectnessWithCache(const TreeState& state, uint32_t branch_index);
-size_t computeBranchUnperfectness(const TreeState & state, uint32_t branch_index);
-size_t computeBranchHash(const char* branch_data, uint32_t branch_len);
+size_t computeBranchUnperfectness(const std::vector<char> &branch_data, uint8_t branch_len);
+size_t computeBranchHash(const std::vector<char> &branch_data, uint8_t branch_len);

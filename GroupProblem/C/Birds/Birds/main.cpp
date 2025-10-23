@@ -59,14 +59,14 @@ input_data_t DATA5 = {
 int main( void )
 {
 	input_data_t DATA = DATA2;
-	auto start_state = TreeState(DATA.branches_on_tree, DATA.branch_len, DATA.TreeState);
+	auto start_state = TreeState(DATA.TreeState);
 	auto Solver = AStarSolver(start_state);
 	GlobalSolver_p = &Solver;
 	auto ans = Solver.solve();
 	printf("%d\n", ans.steps_amount);
 	for(uint32_t i = 0; i < ans.steps_amount; i++)
 	{
-		printf("%d \t%d \t%d \t%c\n", i+1, ans.Moves[i].src_branch, ans.Moves[i].dst_branch, 'A' + ans.Moves[i].bird);
+		printf("%d \t%d \t%d \t%c\n", i+1, ans.Moves[i].src_branch, ans.Moves[i].dst_branch, 'A' + ans.Moves[i].bird - 1);
 	}
 	system("pause");
 	return 0;
