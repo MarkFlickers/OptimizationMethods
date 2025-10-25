@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <memory>
 #include <array>
+#include <numeric>
+#include <string>
 #include "AStar.h"
 
 namespace std {
@@ -65,12 +67,64 @@ void TreeState::normalizeBirds(void)
     }
 }
 
+// Optimized sort: precompute compact keys and sort indices, then rebuild container using move.
 void TreeState::sortBranches()
 {
-    std::sort(branches_.begin(), branches_.end(),
-        [this](const std::vector<char>& a, const std::vector<char>& b) {
-        return compareBranches(a, b) < 0;
-    });
+    const size_t n = branches_.size();
+    if(n <= 1) return;
+
+    // indices to sort
+    std::vector<size_t> idx(n);
+    std::iota(idx.begin(), idx.end(), 0);
+
+    // flags whether branch is empty (first element == 0)
+    std::vector<unsigned char> is_empty(n);
+
+    // For small branch_len_ pack bytes into uint64_t (fast compare). If branch_len_ > 8 fall back to string keys.
+    if(branch_len_ <= 8)
+    {
+        std::vector<uint64_t> keys(n);
+        for(size_t i = 0; i < n; ++i)
+        {
+            const auto &b = branches_[i];
+            is_empty[i] = (b.empty() || b[0] == 0) ? 1 : 0;
+            uint64_t k = 0;
+            for(uint8_t j = 0; j < branch_len_; ++j)
+            {
+                k = (k << 8) | static_cast<unsigned char>(b[j]);
+            }
+            keys[i] = k;
+        }
+
+        std::stable_sort(idx.begin(), idx.end(), [&](size_t a, size_t b){
+            if(is_empty[a] != is_empty[b]) return !is_empty[a]; // non-empty first
+            return keys[a] < keys[b];
+        });
+    }
+    else
+    {
+        std::vector<std::string> keys(n);
+        for(size_t i = 0; i < n; ++i)
+        {
+            const auto &b = branches_[i];
+            is_empty[i] = (b.empty() || b[0] == 0) ? 1 : 0;
+            keys[i].assign(b.begin(), b.end());
+        }
+
+        std::stable_sort(idx.begin(), idx.end(), [&](size_t a, size_t b){
+            if(is_empty[a] != is_empty[b]) return !is_empty[a];
+            return keys[a] < keys[b];
+        });
+    }
+
+    // Rebuild branches_ in sorted order using move to avoid deep copies
+    std::vector<std::vector<char>> new_branches;
+    new_branches.reserve(n);
+    for(size_t id : idx)
+    {
+        new_branches.push_back(std::move(branches_[id]));
+    }
+    branches_.swap(new_branches);
 }
 
 bool TreeState::isBranchEmpty(const std::vector<char>& branch) const
@@ -83,7 +137,7 @@ bool TreeState::isBranchEmpty(const std::vector<char>& branch) const
 
 int TreeState::compareBranches(const std::vector<char>& a, const std::vector<char>& b) const
 {
-	// Empty branches in the end
+    // Empty branches in the end
     bool a_empty = isBranchEmpty(a);
     bool b_empty = isBranchEmpty(b);
 
@@ -91,7 +145,7 @@ int TreeState::compareBranches(const std::vector<char>& a, const std::vector<cha
     if(!a_empty && b_empty) return -1;
     if(a_empty && b_empty) return 0;
 
-	// Lexicographical comparison
+    // Lexicographical comparison
     for(uint8_t i = 0; i < branch_len_; ++i)
     {
         if(a[i] != b[i])
@@ -129,7 +183,8 @@ TreeState TreeState::applyMove(const Move& move) const
     src_branch[move.src_pos] = 0;
     dst_branch[move.dst_pos] = bird_to_move;
 
-    new_state.normalizeBirds();
+    // State coming from an already-normalized TreeState: moved bird values remain normalized.
+    // normalizeBirds() here is redundant and costly — skip it.
     new_state.sortBranches();
     new_state.hash_computed_ = false;
 
@@ -256,7 +311,7 @@ SolvedTree AStarSolver::solve()
 
         for(const auto& move : moves)
         {
-			// Creater new state by applying the move
+            // Creater new state by applying the move
             TreeState new_state = current_node->getTree().getState().applyMove(move);
             size_t new_hash = new_state.getHash();
             int new_g = current_node->getG() + 1;
@@ -270,19 +325,19 @@ SolvedTree AStarSolver::solve()
             if(it != node_registry_.end())
             {
                 Node* existing_node = it->second;
-				// If the states are equal, check if we found a better path
+                // If the states are equal, check if we found a better path
                 if(existing_node->getTree().getState() == new_state)
                 {
                     if(new_g < existing_node->getG())
                     {
-						// Update existing node with better path
+                        // Update existing node with better path
                         existing_node->update(current_node, move, new_g);
                         open_list.push(existing_node);
                     }
                 }
                 else
                 {
-					// Hash collision detected, create a new node
+                    // Hash collision detected, create a new node
                     Tree new_tree(new_state);
                     *existing_node = Node(std::move(new_tree), current_node, move, new_g);
                     open_list.push(existing_node);
@@ -335,16 +390,16 @@ std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const
     uint16_t branches_count = state.getTotalBranches();
     uint8_t branch_len = state.getBranchLen();
 
-	moves.reserve(branches_count * 8); // Some arbitrary number to reduce reallocations
+    moves.reserve(branches_count * 8); // Some arbitrary number to reduce reallocations
 
     for(uint16_t src = 0; src < branches_count; ++src)
     {
         const auto& src_branch = branches[src];
 
-		// Skip empty branches
+        // Skip empty branches
         if(src_branch[0] == 0) continue;
 
-		// Find the topmost bird in the source branch
+        // Find the topmost bird in the source branch
         int8_t src_pos = -1;
         for(int8_t j = branch_len - 1; j >= 0; --j)
         {
@@ -364,7 +419,7 @@ std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const
 
             const auto& dst_branch = branches[dst];
 
-			// Find the first empty position in the destination branch
+            // Find the first empty position in the destination branch
             int8_t dst_pos = -1;
             for(uint8_t j = 0; j < branch_len; ++j)
             {
@@ -376,7 +431,7 @@ std::vector<Move> AStarSolver::findPossibleMoves(const Tree& tree) const
             }
             if(dst_pos == -1) continue;
 
-			// Check the movement rules
+            // Check the movement rules
             if(dst_pos > 0 && dst_branch[dst_pos - 1] != bird_to_move)
             {
                 continue;
