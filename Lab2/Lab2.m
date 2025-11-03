@@ -121,9 +121,10 @@ function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, 
     xmin = xprev;
 end
 
-function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, epsilon)
     global GRADIENT_COST;
     % Метод наискорейшего спуска
+    trajectory = [x0];
     x = x0;
     func_calculations = 0;
     max_iter = 1000;
@@ -145,6 +146,7 @@ function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
         
         x_new = x - alpha * grad;
         x = x_new;
+        trajectory = [trajectory; x];
     end
     
     xmin = x;
@@ -152,9 +154,10 @@ function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0, epsilon)
     global GRADIENT_COST;
     % Метод сопряженных градиентов (Флетчера-Ривса)
+    trajectory = [x0];
     x = x0;
     func_calculations = 0;
     max_iter = 1000;
@@ -170,7 +173,7 @@ function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
         func_calculations = func_calculations + calcs;
 
         x = x + alpha * d;
-
+        trajectory = [trajectory; x];
         grad_prev = grad;
         grad = func_gradient(f,x);
         func_calculations = func_calculations + GRADIENT_COST;
@@ -189,29 +192,187 @@ function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = Newton(func, start, target_precision)
-    global FIRST_DERIVATIVE_COST;
-    global SECOND_DERIVATIVE_COST;
+function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
+    global GRADIENT_COST;
+    trajectory = [x0];
+    x = x0;
     func_calculations = 0;
-    xmin = start;
-    dfmin = first_derivative(func, xmin);
-    ddfmin = second_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    step = abs(dfmin/ddfmin);
-    while abs(dfmin) > target_precision
-        xmin = xmin - dfmin/ddfmin;
-        prevstep = step;
-        step = abs(dfmin/ddfmin);
-        if (step - prevstep) > 0
-            xmin = Inf;
-            break
-        end 
-        dfmin = first_derivative(func, xmin);
-        ddfmin = second_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
+    max_iter = 1000;
+    func = @(x) f(x(1), x(2));
+    syms sym_func(x1, x2);
+    sym_func(x1, x2) = f;
+    
+    grad = func_gradient(f,x);
+    func_calculations = func_calculations + GRADIENT_COST;
+    %d = -grad;
+    
+    Hessian = hessian(sym_func);
+    A = double(Hessian(x0(1), x0(2)));
+    Ainv = inv(A);
+    for iter = 1:max_iter
+        % Поиск оптимального шага
+        x = (x' - Ainv * grad')';
+        trajectory = [trajectory; x];
+        grad_prev = grad;
+        grad = func_gradient(f,x);
+        func_calculations = func_calculations + GRADIENT_COST;
+        if norm(grad) < epsilon
+            break;
+        end
+        A = double(Hessian(x(1), x(2)));
+        Ainv = inv(A);
     end
+    xmin = x;
     fmin = func(xmin);
     func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsilon)
+    global GRADIENT_COST;
+    trajectory = [x0];
+    x = x0;
+    func_calculations = 0;
+    max_iter = 1000;
+    func = @(x) f(x(1), x(2));
+    syms sym_func(x1, x2);
+    sym_func(x1, x2) = f;
+    reduction_coeff = 1/2;
+    edge_len = 2;
+    f_prev = func(x);
+   
+    for iter = 1:max_iter
+        simplex = [x; x + ((sqrt(2 + 1) - 1)/(2 * sqrt(2)))*edge_len; x + ((sqrt(2 + 1) + 2 - 1)/(2 * sqrt(2)))*edge_len];
+        fs = [func(simplex(1,:)); func(simplex(2,:)); func(simplex(3,:))];
+        func_calculations = func_calculations + 3;
+        [fmax, ind_max]= max(fs);
+        xmax = simplex(ind_max,:);
+        x = 2/3*(sum(simplex) - xmax) - xmax;
+        trajectory = [trajectory; x];
+        
+        f_min = func(x);
+        if f_min > f_prev
+            edge_len = edge_len * reduction_coeff;
+        end
+        if edge_len < epsilon
+            break;
+        end
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function contour_plot_with_optimization(f, x_limits, y_limits, level_step, varargin)
+% Построение линий уровня функции двух переменных с точкой минимума и траекторией
+%
+% Входные параметры:
+%   f - функция двух переменных (function handle) f = @(x1,x2) ...
+%   x_limits - пределы по x [x_min, x_max]
+%   y_limits - пределы по y [y_min, y_max]  
+%   level_step - шаг между линиями уровня
+%
+% Опциональные параметры (пары "ключ-значение"):
+%   'MinPoint' - точка минимума [x_min, y_min]
+%   'Trajectory' - массив точек траектории Nx2
+%   'Title' - заголовок графика
+%   'ColorMap' - цветовая схема ('parula', 'jet', 'hot', etc.)
+%   'ShowColorbar' - показывать цветовую шкалу (true/false)
+
+    % Парсинг опциональных параметров
+    p = inputParser;
+    addRequired(p, 'f', @(x) isa(x, 'function_handle'));
+    addRequired(p, 'x_limits', @(x) isnumeric(x) && length(x)==2);
+    addRequired(p, 'y_limits', @(x) isnumeric(x) && length(x)==2);
+    addRequired(p, 'level_step', @isnumeric);
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    addParameter(p, 'Trajectory', [], @(x) isnumeric(x) && (isempty(x) || size(x,2)==2));
+    addParameter(p, 'Title', 'Линии уровня функции', @ischar);
+    addParameter(p, 'ColorMap', 'parula', @ischar);
+    addParameter(p, 'ShowColorbar', true, @islogical);
+    
+    parse(p, f, x_limits, y_limits, level_step, varargin{:});
+    
+    % Создание сетки
+    x1 = linspace(x_limits(1), x_limits(2), 100);
+    x2 = linspace(y_limits(1), y_limits(2), 100);
+    [X1, X2] = meshgrid(x1, x2);
+    
+    % Вычисление значений функции на сетке
+    Z = arrayfun(@(a,b) f(a,b), X1, X2);
+    
+    % Определение уровней для линий уровня
+    z_min = min(Z(:));
+    z_max = max(Z(:));
+    levels = z_min:level_step:z_max;
+    
+    % Создание графика
+    figure;
+    hold on;
+    
+    % Построение линий уровня
+    %contourf(X1, X2, Z, levels, 'LineWidth', 0.5);
+    contour(X1, X2, Z, levels, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
+    
+    % Настройка цветовой схемы
+    %colormap(p.Results.ColorMap);
+    if p.Results.ShowColorbar
+        colorbar;
+    end
+    
+    % Отображение точки минимума (если задана)
+    if ~isempty(p.Results.MinPoint)
+        min_point = p.Results.MinPoint;
+        plot(min_point(1), min_point(2), 'ro', 'MarkerSize', 10, ...
+             'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'black', ...
+             'LineWidth', 2, 'DisplayName', 'Точка минимума');
+        
+        % Подпись точки минимума
+        text(min_point(1), min_point(2), '  Минимум', ...
+             'Color', 'red', 'FontWeight', 'bold', 'FontSize', 10);
+    end
+    
+    % Отображение траектории (если задана)
+    if ~isempty(p.Results.Trajectory)
+        trajectory = p.Results.Trajectory;
+        
+        % Рисуем траекторию
+        plot(trajectory(:,1), trajectory(:,2), 'w-', 'LineWidth', 2, ...
+             'DisplayName', 'Траектория поиска');
+        
+        % Рисуем точки траектории
+        plot(trajectory(:,1), trajectory(:,2), 'wo', 'MarkerSize', 4, ...
+             'MarkerFaceColor', 'white');
+        
+        % Выделяем начальную точку
+        if size(trajectory,1) > 0
+            plot(trajectory(1,1), trajectory(1,2), 'gs', 'MarkerSize', 8, ...
+                 'MarkerFaceColor', 'green', 'MarkerEdgeColor', 'black', ...
+                 'LineWidth', 2, 'DisplayName', 'Начальная точка');
+        end
+        
+        % Выделяем конечную точку  
+        if size(trajectory,1) > 1
+            plot(trajectory(end,1), trajectory(end,2), 'bd', 'MarkerSize', 8, ...
+                 'MarkerFaceColor', 'blue', 'MarkerEdgeColor', 'black', ...
+                 'LineWidth', 2, 'DisplayName', 'Конечная точка');
+        end
+    end
+    
+    % Настройка графика
+    xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+    title(p.Results.Title, 'FontSize', 14, 'FontWeight', 'bold');
+    
+    grid on;
+    axis equal;
+    axis([x_limits, y_limits]);
+    
+    % Добавление легенды, если есть что показывать
+    if ~isempty(p.Results.MinPoint) || ~isempty(p.Results.Trajectory)
+        legend('show', 'Location', 'best');
+    end
+    
+    hold off;
 end
 
 
@@ -312,15 +473,21 @@ x0 = [1, -1];
 a = 1;
 f = @(x1, x2) x1.^2 + a * x2.^2;
 %f = @(x) x(1).^2 + a * x(2).^2;
-%plotSingleFunction(f, start, stop);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false);
 syms func(x1, x2);
 func(x1, x2) = f;
 df1 = matlabFunction(diff(func, x1));
 df2 = matlabFunction(diff(func, x2));
 grad = func_gradient(f, x0);
 
-[x, y, Nsteepest] = steepest_descent(f, x0, target_precision)
-[x, y, Nconjugate] = conjugate_gradient(f, x0, target_precision)
+[x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
+[x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
+[x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
+[x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
 %ddf = matlabFunction(diff(func, x, 2));
 % Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
 % %Names = ["precision", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
