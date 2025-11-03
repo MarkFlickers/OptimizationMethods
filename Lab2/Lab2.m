@@ -95,7 +95,7 @@ function [grad] = func_gradient(f, x)
     grad = [double(df1(x(1), x(2))), double(df2(x(1), x(2)))];
 end
 
-function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, k)
+function [xmin, fmin, func_calculations] = digitwise(f, start, precision, k)
     delta = 1;
     x = start;
     direction = 1;
@@ -141,7 +141,7 @@ function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, e
         end
       
         % Поиск оптимального шага
-        [alpha, Fmin, calcs] = digitwise(@(a) func(x - a * grad), 0, 1, epsilon, 4);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x - a * grad), 0, epsilon/10, 4);
         func_calculations = func_calculations + calcs;
         
         x_new = x - alpha * grad;
@@ -169,7 +169,7 @@ function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0,
     
     for iter = 1:max_iter
         % Поиск оптимального шага
-        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, 1, epsilon, 4);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, epsilon/10, 4);
         func_calculations = func_calculations + calcs;
 
         x = x + alpha * d;
@@ -228,33 +228,70 @@ function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
 end
 
 function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsilon)
-    global GRADIENT_COST;
     trajectory = [x0];
     x = x0;
     func_calculations = 0;
     max_iter = 1000;
     func = @(x) f(x(1), x(2));
-    syms sym_func(x1, x2);
-    sym_func(x1, x2) = f;
     reduction_coeff = 1/2;
     edge_len = 2;
     f_prev = func(x);
    
     for iter = 1:max_iter
-        simplex = [x; x + ((sqrt(2 + 1) - 1)/(2 * sqrt(2)))*edge_len; x + ((sqrt(2 + 1) + 2 - 1)/(2 * sqrt(2)))*edge_len];
+        xk1 = x;
+        xk2 = x + ((sqrt(2 + 1) - 1)/(2 * sqrt(2)))*edge_len;
+        xk3 = x + ((sqrt(2 + 1) + 2 - 1)/(2 * sqrt(2)))*edge_len;
+        simplex = [xk1; xk2; xk3];
         fs = [func(simplex(1,:)); func(simplex(2,:)); func(simplex(3,:))];
+        [vals, index] = sort(fs);
+        xk1 = simplex(index(1),:);
+        xk2 = simplex(index(2),:);
+        xk3 = simplex(index(3),:);
         func_calculations = func_calculations + 3;
-        [fmax, ind_max]= max(fs);
-        xmax = simplex(ind_max,:);
-        x = 2/3*(sum(simplex) - xmax) - xmax;
-        trajectory = [trajectory; x];
+        x_mirrored = 2/3*(xk1 + xk2) - xk3;
         
-        f_min = func(x);
-        if f_min > f_prev
+        f_min = func(x_mirrored);
+        if f_min >= f_prev
             edge_len = edge_len * reduction_coeff;
+            x = xk1;
+            f_prev = vals(1);
+        else
+            x = x_mirrored;
+            f_prev = f_min;
         end
+        trajectory = [trajectory; x];
         if edge_len < epsilon
             break;
+        end
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, epsilon)
+    trajectory = [x0];
+    n = length(x0);
+    x = x0;
+    func_calculations = 0;
+    max_iter = 1000;
+    func = @(x) f(x(1), x(2));
+    basis = eye(n);
+    xprev = x0;
+    j = 1;
+    for iter = 1:max_iter
+        ej = basis(j,:);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * ej), 0, epsilon/10, 4);
+        func_calculations = func_calculations + calcs;
+        x = x + alpha * ej;
+        trajectory = [trajectory; x];
+        j = j + 1;
+        if j == n + 1
+            j = 1;
+            if x - xprev < epsilon
+                break;
+            end
+            xprev = x;
         end
     end
     xmin = x;
@@ -487,6 +524,8 @@ contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Traj
 [x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
 contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
 [x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
+contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
+[x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
 contour_plot_with_optimization(f, [-2, 2], [-2 2], 0.1, ShowColorbar=false, Trajectory=[trajectory]);
 %ddf = matlabFunction(diff(func, x, 2));
 % Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
