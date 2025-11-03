@@ -18,16 +18,19 @@ struct Move {
 struct SolvedTree {
     size_t steps_amount;
     std::vector<Move> Moves;
+    std::vector<std::vector<char>> Resultant_tree;
 };
 
 class TreeState {
 private:
     std::vector<std::vector<char>> branches_;
+    uint8_t birds_rename_table[27] = {0};
     uint16_t total_branches_;
     uint8_t branch_len_;
     mutable size_t hash_ = 0;
     mutable bool hash_computed_ = false;
 
+    void createBirdsRenameTable(const std::vector<std::vector<char>>& old_state);
     void normalizeBirds();
     void sortBranches();
     bool isBranchEmpty(const std::vector<char>& branch) const;
@@ -36,9 +39,11 @@ private:
 public:
     TreeState() = default;
     TreeState(const std::vector<std::vector<char>>& state);
+    TreeState(const std::vector<std::vector<char>>& state, uint8_t *old_birds_rename_table);
 
     void computeHash() const;
-    const std::vector<std::vector<char>>& getBranches() const { return branches_; }
+    std::vector<std::vector<char>> getBranchesWithOriginalBirds(void) const;
+    const std::vector<std::vector<char>>& getBranches() const;
     uint16_t getTotalBranches() const { return total_branches_; }
     uint8_t getBranchLen() const { return branch_len_; }
     size_t getHash() const;
