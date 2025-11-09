@@ -273,17 +273,21 @@ void Tree::computeUnperfectness()
         if(branch[0] == 0) continue;
 
         char first_bird = branch[0];
-        size_t same_count = 1;
+        uint8_t ordered_birds = 0;
+        uint8_t empty_positions = 0;
 
-        for(size_t j = 1; j < branch.size(); ++j)
+        for(uint8_t j = state_.getBranchLen() - 1; branch[j] == 0; j--)
+            empty_positions++;
+
+        for(uint8_t j = 0; j < (state_.getBranchLen() - empty_positions); j++)
         {
-            if(branch[j] == first_bird)
-            {
-                same_count++;
-            }
+            if(branch[j] != first_bird)
+                break;
+            ordered_birds++;
         }
 
-        unperfectness_ += branch.size() - same_count;
+        uint8_t unordered_birds = state_.getBranchLen() - empty_positions - ordered_birds;
+        unperfectness_ += unordered_birds * 26 + empty_positions;
     }
 }
 

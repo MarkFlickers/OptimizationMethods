@@ -118,7 +118,7 @@ input_data_t DATA13 = {
 
 int main( void )
 {
-	input_data_t DATA = DATA9;
+	input_data_t DATA = DATA13;
 	auto start_state = TreeState(DATA.TreeState);
 	auto Solver = AStarSolver(start_state);
 	GlobalSolver_p = &Solver;
