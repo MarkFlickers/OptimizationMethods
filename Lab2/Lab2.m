@@ -95,7 +95,7 @@ function [grad] = func_gradient(f, x)
     grad = [double(df1(x(1), x(2))), double(df2(x(1), x(2)))];
 end
 
-function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, k)
+function [xmin, fmin, func_calculations] = digitwise(f, start, precision, k)
     delta = 1;
     x = start;
     direction = 1;
@@ -121,12 +121,13 @@ function [xmin, fmin, func_calculations] = digitwise(f, start, stop, precision, 
     xmin = xprev;
 end
 
-function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, epsilon)
     global GRADIENT_COST;
     % Метод наискорейшего спуска
+    trajectory = [x0];
     x = x0;
     func_calculations = 0;
-    max_iter = 1000;
+    max_iter = 10000;
     func = @(x) f(x(1), x(2));
     
     for iter = 1:max_iter
@@ -140,11 +141,12 @@ function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
         end
       
         % Поиск оптимального шага
-        [alpha, Fmin, calcs] = digitwise(@(a) func(x - a * grad), 0, 1, epsilon, 4);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x - a * grad), 0, epsilon/10, 4);
         func_calculations = func_calculations + calcs;
         
         x_new = x - alpha * grad;
         x = x_new;
+        trajectory = [trajectory; x];
     end
     
     xmin = x;
@@ -152,12 +154,13 @@ function [xmin, fmin, func_calculations] = steepest_descent(f, x0, epsilon)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0, epsilon)
     global GRADIENT_COST;
     % Метод сопряженных градиентов (Флетчера-Ривса)
+    trajectory = [x0];
     x = x0;
     func_calculations = 0;
-    max_iter = 1000;
+    max_iter = 10000;
     func = @(x) f(x(1), x(2));
     
     grad = func_gradient(f,x);
@@ -166,11 +169,11 @@ function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
     
     for iter = 1:max_iter
         % Поиск оптимального шага
-        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, 1, epsilon, 4);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, epsilon/10, 4);
         func_calculations = func_calculations + calcs;
 
         x = x + alpha * d;
-
+        trajectory = [trajectory; x];
         grad_prev = grad;
         grad = func_gradient(f,x);
         func_calculations = func_calculations + GRADIENT_COST;
@@ -189,29 +192,311 @@ function [xmin, fmin, func_calculations] = conjugate_gradient(f, x0, epsilon)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations] = Newton(func, start, target_precision)
-    global FIRST_DERIVATIVE_COST;
-    global SECOND_DERIVATIVE_COST;
+function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
+    global GRADIENT_COST;
+    trajectory = [x0];
+    x = x0;
     func_calculations = 0;
-    xmin = start;
-    dfmin = first_derivative(func, xmin);
-    ddfmin = second_derivative(func, xmin);
-    func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
-    step = abs(dfmin/ddfmin);
-    while abs(dfmin) > target_precision
-        xmin = xmin - dfmin/ddfmin;
-        prevstep = step;
-        step = abs(dfmin/ddfmin);
-        if (step - prevstep) > 0
-            xmin = Inf;
-            break
-        end 
-        dfmin = first_derivative(func, xmin);
-        ddfmin = second_derivative(func, xmin);
-        func_calculations = func_calculations + FIRST_DERIVATIVE_COST + SECOND_DERIVATIVE_COST;
+    max_iter = 10000;
+    func = @(x) f(x(1), x(2));
+    syms sym_func(x1, x2);
+    sym_func(x1, x2) = f;
+    
+    grad = func_gradient(f,x);
+    func_calculations = func_calculations + GRADIENT_COST;
+    %d = -grad;
+    
+    Hessian = hessian(sym_func);
+    A = double(Hessian(x0(1), x0(2)));
+    Ainv = inv(A);
+    for iter = 1:max_iter
+        % Поиск оптимального шага
+        x = (x' - Ainv * grad')';
+        trajectory = [trajectory; x];
+        grad_prev = grad;
+        grad = func_gradient(f,x);
+        func_calculations = func_calculations + GRADIENT_COST;
+        if norm(grad) < epsilon
+            break;
+        end
+        A = double(Hessian(x(1), x(2)));
+        Ainv = inv(A);
     end
+    xmin = x;
     fmin = func(xmin);
     func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsilon)
+    trajectory = [x0];
+    x = x0;
+    func_calculations = 0;
+    max_iter = 10000;
+    func = @(x) f(x(1), x(2));
+    reduction_coeff = 1/2;
+    edge_len = 2;
+    f_prev = func(x);
+   
+    for iter = 1:max_iter
+        xk1 = x;
+        xk2 = x + ((sqrt(2 + 1) - 1)/(2 * sqrt(2)))*edge_len;
+        xk3 = x + ((sqrt(2 + 1) + 2 - 1)/(2 * sqrt(2)))*edge_len;
+        simplex = [xk1; xk2; xk3];
+        fs = [func(simplex(1,:)); func(simplex(2,:)); func(simplex(3,:))];
+        [vals, index] = sort(fs);
+        xk1 = simplex(index(1),:);
+        xk2 = simplex(index(2),:);
+        xk3 = simplex(index(3),:);
+        func_calculations = func_calculations + 3;
+        x_mirrored = 2/3*(xk1 + xk2) - xk3;
+        
+        f_min = func(x_mirrored);
+        if f_min >= f_prev
+            edge_len = edge_len * reduction_coeff;
+            x = xk1;
+            f_prev = vals(1);
+        else
+            x = x_mirrored;
+            f_prev = f_min;
+        end
+        trajectory = [trajectory; x];
+        if edge_len < epsilon
+            break;
+        end
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, epsilon)
+    trajectory = [x0];
+    n = length(x0);
+    x = x0;
+    func_calculations = 0;
+    max_iter = 10000;
+    func = @(x) f(x(1), x(2));
+    basis = eye(n);
+    xprev = x0;
+    j = 1;
+    for iter = 1:max_iter
+        ej = basis(j,:);
+        [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * ej), 0, epsilon/10, 4);
+        func_calculations = func_calculations + calcs;
+        x = x + alpha * ej;
+        trajectory = [trajectory; x];
+        j = j + 1;
+        if j == n + 1
+            j = 1;
+            if x - xprev < epsilon
+                break;
+            end
+            xprev = x;
+        end
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Hooke_Jeeves(f, x0, epsilon)
+    trajectory = [x0];
+    n = length(x0);
+    x = x0;
+    deltas = [1 1];
+    gamma = 4;
+    scale_coeff = 0.5;
+    func_calculations = 0;
+    max_iter = 10000;
+    func = @(x) f(x(1), x(2));
+    basis = eye(n);
+    xprev = x0;
+    j = 1;
+    for iter = 1:max_iter
+        ej = basis(j,:);
+        y1 = x - deltas(j) * ej;
+        y2 = x + deltas(j) * ej;
+        xprev = x;
+        if(func(x) > func(y1))
+            x = y1;
+            func_calculations = func_calculations + 1;
+        elseif(func(x) > func(y2))
+            x = y2;
+            func_calculations = func_calculations + 2;
+        else
+            func_calculations = func_calculations + 2;
+        end
+        j = j + 1;
+        if j == n + 1
+            j = 1;
+            if(x == xprev)
+                if norm(deltas) < epsilon
+                    break;
+                else
+                    deltas = deltas ./ gamma;
+                end
+            end
+
+            x = x - scale_coeff*(x - xprev);
+            trajectory = [trajectory; x];
+        end
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function [xmin, fmin, func_calculations, trajectory] = Random_Search(f, x0, epsilon)
+    trajectory = [x0];
+    n = length(x0);
+    x = x0;
+    alpha = 1;
+    gamma = 4;
+    m = 3*n;
+    func_calculations = 0;
+    max_iter = 10000;
+    func = @(x) f(x(1), x(2));
+    xprev = x0;
+    j = 1;
+    ksi = randi([-1 1],1,2);
+    for iter = 1:max_iter
+        y = x + alpha * ksi / norm(ksi);
+        xprev = x;
+        if(func(x) > func(y))
+            x = y;
+            func_calculations = func_calculations + 1;
+            trajectory = [trajectory; x];
+            continue
+        end
+        j = j + 1;
+        if j == m + 1
+            j = 1;
+            if alpha < epsilon
+                break;
+            else
+                alpha = alpha / gamma;
+            end
+        end
+        ksi = randi([-10 10],1,2);
+    end
+    xmin = x;
+    fmin = func(xmin);
+    func_calculations = func_calculations + 1;
+end
+
+function contour_plot_with_optimization(f, x_limits, y_limits, level_step, varargin)
+% Построение линий уровня функции двух переменных с точкой минимума и траекторией
+%
+% Входные параметры:
+%   f - функция двух переменных (function handle) f = @(x1,x2) ...
+%   x_limits - пределы по x [x_min, x_max]
+%   y_limits - пределы по y [y_min, y_max]  
+%   level_step - шаг между линиями уровня
+%
+% Опциональные параметры (пары "ключ-значение"):
+%   'MinPoint' - точка минимума [x_min, y_min]
+%   'Trajectory' - массив точек траектории Nx2
+%   'Title' - заголовок графика
+%   'ColorMap' - цветовая схема ('parula', 'jet', 'hot', etc.)
+%   'ShowColorbar' - показывать цветовую шкалу (true/false)
+
+    % Парсинг опциональных параметров
+    p = inputParser;
+    addRequired(p, 'f', @(x) isa(x, 'function_handle'));
+    addRequired(p, 'x_limits', @(x) isnumeric(x) && length(x)==2);
+    addRequired(p, 'y_limits', @(x) isnumeric(x) && length(x)==2);
+    addRequired(p, 'level_step', @isnumeric);
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    addParameter(p, 'Trajectory', [], @(x) isnumeric(x) && (isempty(x) || size(x,2)==2));
+    addParameter(p, 'Title', "Линии уровня функции", @isstring);
+    addParameter(p, 'ColorMap', 'false', @ischar);
+    addParameter(p, 'ShowColorbar', true, @islogical);
+    
+    parse(p, f, x_limits, y_limits, level_step, varargin{:});
+    
+    % Создание сетки
+    x1 = linspace(x_limits(1), x_limits(2), 300);
+    x2 = linspace(y_limits(1), y_limits(2), 300);
+    [X1, X2] = meshgrid(x1, x2);
+    
+    % Вычисление значений функции на сетке
+    Z = arrayfun(@(a,b) f(a,b), X1, X2);
+    
+    % Определение уровней для линий уровня
+    z_min = min(Z(:));
+    z_max = max(Z(:));
+    %levels = z_min:level_step:z_max;
+    levels = [25, 20, 15, 10, 5, 2, 1, 0.5, 0.25, 0.175, 0.1, 0.05, 0.01, 0.003];
+    
+    % Создание графика
+    figure;
+    hold on;
+    
+    % Построение линий уровня
+    %contourf(X1, X2, Z, levels, 'LineWidth', 0.5);
+    %contour(X1, X2, Z, levels, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
+    contour(X1, X2, Z, 30, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
+    
+    % Настройка цветовой схемы
+    %colormap(p.Results.ColorMap);
+    if p.Results.ShowColorbar
+    %    colorbar;
+    end
+    
+    % Отображение точки минимума (если задана)
+    if ~isempty(p.Results.MinPoint)
+        min_point = p.Results.MinPoint;
+        plot(min_point(1), min_point(2), 'ro', 'MarkerSize', 10, ...
+             'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'black', ...
+             'LineWidth', 2, 'DisplayName', 'Точка минимума');
+        
+        % Подпись точки минимума
+        %text(min_point(1), min_point(2), '  Настоящий минимум', ...
+        %     'Color', 'red', 'FontWeight', 'bold', 'FontSize', 10);
+    end
+    
+    % Отображение траектории (если задана)
+    if ~isempty(p.Results.Trajectory)
+        trajectory = p.Results.Trajectory;
+        
+        % Рисуем траекторию
+        plot(trajectory(:,1), trajectory(:,2), 'b-', 'LineWidth', 2, ...
+             'DisplayName', 'Траектория поиска');
+        
+        % Рисуем точки траектории
+        plot(trajectory(:,1), trajectory(:,2), 'bo', 'MarkerSize', 4, ...
+             'MarkerFaceColor', 'white');
+        
+        % Выделяем начальную точку
+        if size(trajectory,1) > 0
+            plot(trajectory(1,1), trajectory(1,2), 'gs', 'MarkerSize', 8, ...
+                 'MarkerFaceColor', 'green', 'MarkerEdgeColor', 'black', ...
+                 'LineWidth', 2, 'DisplayName', 'Начальная точка');
+        end
+        
+        % Выделяем конечную точку  
+        if size(trajectory,1) > 1
+            plot(trajectory(end,1), trajectory(end,2), 'bd', 'MarkerSize', 8, ...
+                 'MarkerFaceColor', 'blue', 'MarkerEdgeColor', 'black', ...
+                 'LineWidth', 2, 'DisplayName', 'Конечная точка');
+        end
+    end
+    
+    % Настройка графика
+    xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+    title(p.Results.Title, 'FontSize', 14, 'FontWeight', 'bold');
+    
+    grid on;
+    axis equal;
+    axis([x_limits, y_limits]);
+    
+    % Добавление легенды, если есть что показывать
+    if ~isempty(p.Results.MinPoint) || ~isempty(p.Results.Trajectory)
+        legend('show', 'Location', 'best');
+    end
+    
+    hold off;
 end
 
 
@@ -306,121 +591,59 @@ function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     hold off;
 end
 
-target_precision = 0.000001;
-DERIVATIVE_PRECISION = target_precision;
-x0 = [1, -1];
-a = 1;
-f = @(x1, x2) x1.^2 + a * x2.^2;
-%f = @(x) x(1).^2 + a * x(2).^2;
-%plotSingleFunction(f, start, stop);
+target_precision =1e-3;
+DERIVATIVE_PRECISION = target_precision/10;
+% a = 25;
+% f = @(x1, x2) x1.^2 + a * x2.^2;
+% x0 = [1, -1];
+% 
+% 
+% syms func(x1, x2);
+% func(x1, x2) = f;
+% df1 = matlabFunction(diff(func, x1));
+% df2 = matlabFunction(diff(func, x2));
+% grad = func_gradient(f, x0);
+% xrange = [-2, 2];
+% yrange = [-2, 2];
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
+% [x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
+% [x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый коэффициент");
+% [x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
+% [x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
+% [x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
+% [x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
+% [x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
+
+
+x0 = [45, 55];
+f = @(x1, x2) 129*x1^2 - 256*x1*x2 + 129*x2^2 - 51*x1 - 149*x2 - 27;
 syms func(x1, x2);
 func(x1, x2) = f;
 df1 = matlabFunction(diff(func, x1));
 df2 = matlabFunction(diff(func, x2));
 grad = func_gradient(f, x0);
-
-[x, y, Nsteepest] = steepest_descent(f, x0, target_precision)
-[x, y, Nconjugate] = conjugate_gradient(f, x0, target_precision)
-%ddf = matlabFunction(diff(func, x, 2));
-% Names = ["precision", "bruteforce", "digitiwise", "dichotomy", "golden ratio", "parabolic", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
-% %Names = ["precision", "middle point", "chords", "Newton", "Newton-Raphson", "Marquardt"];
-% N = [];
-% min_pow = -9;
-% max_pow = -1;
-% for i = min_pow:max_pow
-%     target_precision = 10^(i);
-%     [x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
-%     [x, y, Ndigit] = digitwise(f, start, stop, target_precision);
-%     [x, y, Ndich] = dichotomy(f, start, stop, target_precision);
-%     [x, y, Ngold] = goldenratio(f, start, stop, target_precision);
-%     [x, y, Nparab] = parabolic(f, start, stop, target_precision);
-%     [x, y, Nmid] = middlepoint(f, start, stop, target_precision);
-%     [x, y, Nchord] = chord(f, start, stop, target_precision);
-%     [x, y, Nnewt] = Newton(f, (start + stop) / 2, target_precision);
-%     [x, y, Nnr] = Newton_Raphson(f, (start + stop) / 2, target_precision);
-%     [x, y, Nmarq] = Marquardt(f, (start + stop) / 2, target_precision);
-% 
-%     N = [N;[target_precision, Nbrute, Ndigit, Ndich, Ngold, Nparab, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
-%     %N = [N;[target_precision, Nmid, Nchord, Nnewt, Nnr, Nmarq]];
-% end
-% %plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [0, 10^9])
-% plotTableFunctionsLogLog(Names, N, [10^(min_pow), 10^(max_pow)], [1, 80])
-
-N = [];
-Names = ["k", "digitwise"];
-target_precision = 1e-6;
-start_k = 2;
-stop_k = 10;
-for k = start_k:stop_k
-    %Names = [Names, sprintf("k = %d", k)];
-    [x, y, Ndigit] = digitwise(f, start, stop, target_precision, k);
-    N = [N;[k, Ndigit]];
-end
-plotTableFunctionsLogLog(Names, N, [start_k, stop_k], [1, 160])
-
-f = @(x) x .* atan(x) - 1/2 * log(1 + x.^2);
-plotSingleFunction(f, -4, 4);
-syms func(x);
-func(x) = f;
-df = matlabFunction(diff(func, x));
-ddf = matlabFunction(diff(func, x, 2));
-target_precision = 0.001;
-%[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton, target_precision);
-%[range_start, range_end] = FindConvergenceInterval(f, 0, @Newton_Raphson, target_precision);
-%[range_start, range_end] = FindConvergenceInterval(f, 0, @Marquardt, target_precision);
-
-f = @(x) cos(x)./(x.^2);
-start = 1;
-stop = 12;
-plotSingleFunction(f, start, stop);
-syms func(x);
-func(x) = f;
-df = matlabFunction(diff(func, x));
-ddf = matlabFunction(diff(func, x, 2));
-L = abs(double(get_lipschitz_const(f, start, stop, 0.000001))) + 1
-N1 = [];
-for i = 1:7
-    target_precision = 10^(-i);
-    n = ceil(L * (stop - start) / (target_precision * 2));
-    %[x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
-    arg = linspace(start, stop, n);
-    y = f(arg);
-    [fmin, ind] = min(y);
-    xmin = arg(ind);
-    N1 = [N1 n];
-end
-N2 = [];
-for i = 1:7
-    target_precision = 10^(-i);
-    [x, y, Npoly] = Polyline(f, start, stop, target_precision)
-    N2 = [N2 Npoly];
-end
-N = [N1;N2]
-
-f = @(x) 1/10 .* x + 2.*sin(4.*x);
-start = 0;
-stop = 4;
-plotSingleFunction(f, start, stop);
-syms func(x);
-func(x) = f;
-df = matlabFunction(diff(func, x));
-ddf = matlabFunction(diff(func, x, 2));
-L = abs(double(get_lipschitz_const(f, start, stop, 0.000001))) + 1
-N1 = [];
-for i = 1:7
-    target_precision = 10^(-i);
-    n = ceil(L * (stop - start) / (target_precision * 2));
-    %[x, y, Nbrute] = bruteforce(f, start, stop, target_precision);
-    arg = linspace(start, stop, n);
-    y = f(arg);
-    [fmin, ind] = min(y);
-    xmin = arg(ind);
-    N1 = [N1 n];
-end
-N2 = [];
-for i = 1:7
-    target_precision = 10^(-i);
-    [x, y, Npoly] = Polyline(f, start, stop, target_precision)
-    N2 = [N2 Npoly];
-end
-N = [N1;N2]
+min = fminsearch(@(x) f(x(1), x(2)), [50, 50]);
+xrange = [40, 60];
+yrange = [40, 60];
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
+[x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
+[x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый коэффициент");
+[x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
+[x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
+[x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
+[x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
+[x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");

@@ -40,8 +40,56 @@ TreeState::TreeState(const std::vector<std::vector<char>>& state)
     branch_len_ = static_cast<uint8_t>(state[0].size());
 
     normalizeBirds();
+    createBirdsRenameTable(state);
     sortBranches();
     computeHash();
+}
+
+TreeState::TreeState(const std::vector<std::vector<char>>& state, uint8_t *old_birds_rename_table)
+{
+    if(state.empty())
+    {
+        total_branches_ = 0;
+        branch_len_ = 0;
+        return;
+    }
+
+    branches_ = state;
+    total_branches_ = static_cast<uint16_t>(state.size());
+    branch_len_ = static_cast<uint8_t>(state[0].size());
+
+    normalizeBirds();
+    sortBranches();
+    computeHash();
+}
+
+const std::vector<std::vector<char>>& TreeState::getBranches() const
+{ 
+    return branches_; 
+}
+
+void TreeState::createBirdsRenameTable(const std::vector<std::vector<char>>& old_state)
+{
+    for(unsigned int i = 0; i < total_branches_; i++)
+    {
+        for(unsigned int j = 0; j < branch_len_; j++)
+        {
+            birds_rename_table[branches_[i][j]] = old_state[i][j];
+        }
+    }
+}
+
+std::vector<std::vector<char>> TreeState::getBranchesWithOriginalBirds(void) const
+{
+    auto ret_tree = branches_;
+    for(auto& branch : ret_tree)
+    {
+        for(auto& bird : branch)
+        {
+            bird = birds_rename_table[bird];
+        }
+    }
+    return ret_tree;
 }
 
 void TreeState::normalizeBirds(void)
@@ -62,6 +110,10 @@ void TreeState::normalizeBirds(void)
                     type_map[ub] = next_type++;
                 }
                 bird = type_map[ub];
+                if(birds_rename_table[ub] != 0)
+                    birds_rename_table[type_map[ub]] = birds_rename_table[ub];
+                else
+                    birds_rename_table[type_map[ub]] = ub;
             }
         }
     }
@@ -221,17 +273,21 @@ void Tree::computeUnperfectness()
         if(branch[0] == 0) continue;
 
         char first_bird = branch[0];
-        size_t same_count = 1;
+        uint8_t ordered_birds = 0;
+        uint8_t empty_positions = 0;
 
-        for(size_t j = 1; j < branch.size(); ++j)
+        for(uint8_t j = state_.getBranchLen() - 1; branch[j] == 0; j--)
+            empty_positions++;
+
+        for(uint8_t j = 0; j < (state_.getBranchLen() - empty_positions); j++)
         {
-            if(branch[j] == first_bird)
-            {
-                same_count++;
-            }
+            if(branch[j] != first_bird)
+                break;
+            ordered_birds++;
         }
 
-        unperfectness_ += branch.size() - same_count;
+        uint8_t unordered_birds = state_.getBranchLen() - empty_positions - ordered_birds;
+        unperfectness_ += unordered_birds * 26 + empty_positions;
     }
 }
 
@@ -290,6 +346,7 @@ SolvedTree AStarSolver::solve()
         if(current_node->getTree().isTargetState())
         {
             SolvedTree solution{0};
+            solution.Resultant_tree = current_node->getTree().getState().getBranchesWithOriginalBirds();
             const Node* current = current_node;
             while(current != nullptr && current->getParent() != nullptr)
             {
