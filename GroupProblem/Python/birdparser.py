@@ -1,33 +1,17 @@
-f = open("input.txt", "r")
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('filename', nargs='?', default='input.txt')
+args = parser.parse_args()
+print("info: filename provided:", args.filename)
+
+f = open(args.filename, "r")
 CTRLSYMBOLS = ["/", "DATA", "ORDER"]
 MAXBRNCHLEN = 26
 MAXBRNCHCNT = 1000
 bcnt = {
-    'A': 0,
-    'B': 0,
-    'C': 0,
-    'D': 0,
-    'E': 0,
-    'F': 0,
-    'G': 0,
-    'H': 0,
-    'I': 0,
-    'J': 0,
-    'K': 0,
-    'L': 0,
-    'M': 0,
-    'N': 0,
-    'O': 0,
-    'P': 0,
-    'Q': 0,
-    'R': 0,
-    'S': 0,
-    'T': 0,
-    'U': 0,
-    'W': 0,
-    'X': 0,
-    'Y': 0,
-    'Z': 0,
+    'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'J': 0, 'K': 0, 'L': 0, 'M': 0,
+    'N': 0, 'O': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'U': 0, 'V': 0, 'W': 0, 'X': 0, 'Y': 0, 'Z': 0,
 }
 def validdata(x):
     beg = -1
@@ -54,6 +38,7 @@ def removecomments(l):
 def validbranch(b):
     lb = len(b)
     if lb == 0 or lb > MAXBRNCHLEN:
+        print(f'error: length of branch is faulty ({lb})')
         return 2
     for e in b:
         le = len(e)
@@ -82,7 +67,6 @@ def parseline(l):
         if v != 0:
             print(f'error: branchlen of {branch} is not valid')
             return v
-    print(f'info: branch {branch} is valid')
     o = []
     for bird in branch:
         if bird == "==":
@@ -103,16 +87,19 @@ if databeg < 0 or dataend < 0 or (brnchcnt < 0 or brnchcnt > MAXBRNCHCNT):
     print("error: that is my end, there is no valid data section")
 else:
     print('info: first stage start')
+    linenum = 1
     l = removecomments(x[databeg+1]).rstrip()
     if validbranch(l.split(' ')) == 0:
-        print(f'info: branch {l} is valid')
+        print(f'info: branch {linenum:2} [{l}] is valid')
         BRNCHLEN = len(l.split(' '))
         parseline(l)
         for el in x[databeg+2: dataend]:
+            linenum += 1
             l = removecomments(el)
             err = parseline(l)
             if err != 0:
                 break
+            print(f'info: branch {linenum:2} [{l}] is valid')
         print('info: second stage start')
         for b in bcnt.keys():
             if bcnt[b] > 0:
@@ -122,15 +109,18 @@ else:
                     err = 7
                     break
         if err != 0:
-            print(f'error: exit with code {err}')
+            print(f'branch {linenum} error : exit with code {err}')
+        elif err == 7:
+            pass
         else:
-            print('success: all good here is some data')
-            print(bcnt)
-            print(out)
+            print('success: all good here')
+            of = open(args.filename + ".out", 'w')
+            for s in out:
+                of.write(' '.join(map(str, s)))
+                of.write('\n')
+            of.close()
+            print(f'written: {args.filename + ".out"}')
     else:
-        print(f'error: first branch is not valid, can not continue')
+        print(f'error: first branch is not valid, will not continue')
 
 f.close()
-of = open("output.txt", 'w')
-of.write(str(out))
-of.close()
