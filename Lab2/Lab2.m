@@ -183,7 +183,7 @@ end
 function [xmin, fmin, func_calculations] = digitwise(f, start, precision, k)
     global ONE_D_MINIMIZATION_PRECISION
     precision = ONE_D_MINIMIZATION_PRECISION;
-    delta = 1;
+    delta = 0.01;
     x = start;
     direction = 1;
     y = f(x);
@@ -191,6 +191,7 @@ function [xmin, fmin, func_calculations] = digitwise(f, start, precision, k)
     while delta > precision
         delta = delta / k;
         yprev = y;
+        xprev = x;
         func_calculations = func_calculations + 1;
         x = x + delta*direction;
         y = f(x);
@@ -208,8 +209,12 @@ function [xmin, fmin, func_calculations] = digitwise(f, start, precision, k)
     xmin = xprev;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     global GRADIENT_COST;
+    gradient_calculations = 0;
     % Метод наискорейшего спуска
     trajectory = [x0];
     x = x0;
@@ -220,9 +225,15 @@ function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, e
     for iter = 1:max_iter
         grad = func_gradient(f,x);
         %func_calculations = func_calculations + 1;
-        func_calculations = func_calculations + GRADIENT_COST;
+        %func_calculations = func_calculations + GRADIENT_COST;
+        gradient_calculations = gradient_calculations + 1;
         % Критерий остановки
-        if norm(grad) < epsilon
+        if ~isempty(p.Results.MinPoint)
+            min_point = p.Results.MinPoint;
+            if norm(min_point - x) < epsilon
+                break;
+            end
+        elseif norm(grad) < epsilon
             break;
         end
       
@@ -240,18 +251,23 @@ function [xmin, fmin, func_calculations, trajectory] = steepest_descent(f, x0, e
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     global GRADIENT_COST;
     % Метод сопряженных градиентов
     trajectory = [x0];
     x = x0;
     func_calculations = 0;
+    gradient_calculations = 0;
     max_iter = 1000000;
     func = @(x) f(x(1), x(2));
     n = length(x0);
     
     grad = func_gradient(f,x);
-    func_calculations = func_calculations + GRADIENT_COST;
+    %func_calculations = func_calculations + GRADIENT_COST;
+    gradient_calculations = gradient_calculations + 1;
     d = -grad;
 
     iters = 0;
@@ -260,13 +276,13 @@ function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0,
         % Поиск оптимального шага
         [alpha, Fmin, calcs] = digitwise(@(a) func(x + a * d), 0, epsilon/10, 4);
         func_calculations = func_calculations + calcs;
-        %func_calculations = func_calculations + 1;
 
         x = x + alpha * d;
         trajectory = [trajectory; x];
         grad_prev = grad;
         grad = func_gradient(f,x);
-        func_calculations = func_calculations + GRADIENT_COST;
+        % func_calculations = func_calculations + GRADIENT_COST;
+        gradient_calculations = gradient_calculations + 1;
 
         beta = norm(grad)^2 / norm(grad_prev)^2;
         iters = iters + 1;
@@ -276,7 +292,12 @@ function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0,
         end
         d = -grad + beta * d;
 
-        if norm(d) < epsilon
+        if ~isempty(p.Results.MinPoint)
+            min_point = p.Results.MinPoint;
+            if norm(min_point - x) < epsilon
+                break;
+            end
+        elseif norm(grad) < epsilon
             break;
         end
     end
@@ -285,15 +306,20 @@ function [xmin, fmin, func_calculations, trajectory] = conjugate_gradient(f, x0,
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     global GRADIENT_COST;
+    gradient_calculations = 0;
     trajectory = [x0];
     x = x0;
     func_calculations = 0;
     max_iter = 1000000;
     func = @(x) f(x(1), x(2)); 
     grad = func_gradient(f,x);
-    func_calculations = func_calculations + GRADIENT_COST;
+    %func_calculations = func_calculations + GRADIENT_COST;
+    gradient_calculations = gradient_calculations + 1;
 
     [A, hessian_cost] = calculate_Hessian(f, x0);
     func_calculations = func_calculations + hessian_cost;
@@ -303,8 +329,14 @@ function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
         x = (x' - Ainv * grad')';
         trajectory = [trajectory; x];
         grad = func_gradient(f,x);
-        func_calculations = func_calculations + GRADIENT_COST;
-        if norm(grad) < epsilon
+        %func_calculations = func_calculations + GRADIENT_COST;
+        gradient_calculations = gradient_calculations + 1;
+        if ~isempty(p.Results.MinPoint)
+            min_point = p.Results.MinPoint;
+            if norm(min_point - x) < epsilon
+                break;
+            end
+        elseif norm(grad) < epsilon
             break;
         end
         A = calculate_Hessian(f, x);
@@ -316,14 +348,17 @@ function [xmin, fmin, func_calculations, trajectory] = Newton(f, x0, epsilon)
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     trajectory = [x0];
     x = x0;
     func_calculations = 1;
     max_iter = 1000000;
     func = @(x) f(x(1), x(2));
     reduction_coeff = 1/2;
-    edge_len = 0.1;
+    edge_len = 1;
     f_prev = func(x);
     xk1 = x;
     xk2 = [x(1) + ((sqrt(2 + 1) - 1)/(2 * sqrt(2)))*edge_len, x(2) + ((sqrt(2 + 1) + 2 - 1)/(2 * sqrt(2)))*edge_len];
@@ -356,7 +391,12 @@ function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsi
             trajectory = [trajectory; x_mirrored];
         end
         
-        if edge_len < epsilon
+        if ~isempty(p.Results.MinPoint)
+            min_point = p.Results.MinPoint;
+            if norm(min_point - x_mirrored) < epsilon
+                break;
+            end
+        elseif edge_len < epsilon
             break;
         end
     end
@@ -365,53 +405,10 @@ function [xmin, fmin, func_calculations, trajectory] = Right_Simplex(f, x0, epsi
     func_calculations = func_calculations + 1;
 end
 
-function [x_star, n_count, n_iter, trajectory] = regular_simplex(f, x_11, epsilon, edge_len)
-%UNTITLED Summary of this function goes here
-%   Detailed explanation goes here
-    trajectory = [x_11'];
-    n = size(x_11, 1);
-    delta = 0.5;
-    x_12 = [0; 0];
-    x_12(1) = x_11(1) + (sqrt(n + 1) - 1) / (n * sqrt(2)) * edge_len;
-    x_12(2) = x_11(2) + (sqrt(n + 1) + n - 1) / (n * sqrt(2)) * edge_len;
-    x_13 = [0; 0];
-    x_13(2) = x_11(2) + (sqrt(n + 1) - 1) / (n * sqrt(2)) * edge_len;
-    x_13(1) = x_11(1) + (sqrt(n + 1) + n - 1) / (n * sqrt(2)) * edge_len;
-    x_prev = [x_11 x_12 x_13];
-    func = [f(x_11) f(x_12) f(x_13)];
-    n_count = 3;
-    n_iter = 0;
-    [func, index] = sort(func);
-    x_prev = x_prev(:, index);
-    while 1
-        x_k1 = 2 / n * sum(x_prev(:, 1 : n), 2) - x_prev(:, n + 1);
-        f_k1 = f(x_k1);
-        n_count = n_count + 1;
-        if f_k1 < func(n + 1)
-            func(n + 1) = f_k1;
-            x_prev(:, n + 1) = x_k1;
-            trajectory = [trajectory; x_k1'];
-        else
-            for i = 2 : n + 1
-                x_prev(:, i) = x_prev(:, 1) + delta * (x_prev(:, i) - x_prev(:, 1));
-                func(i) = f(x_prev(:, i));
-                n_count = n_count + 1;
-            end
-            edge_len = edge_len * delta;
-            trajectory = [trajectory; x_prev(:, 1)'];
-        end
-        [func, index] = sort(func);
-        x_prev = x_prev(:, index);
-        n_iter = n_iter + 1;
-        if edge_len < epsilon
-            break
-        end
-    end
-    [~, min_ind] = min(func);
-    x_star = x_prev(:, min_ind);
-end
-
-function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     trajectory = [x0];
     n = length(x0);
     x = x0;
@@ -434,7 +431,12 @@ function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, 
         j = j + 1;
         if j == n + 1
             j = 1;
-            if norm(x - xprev) < epsilon
+            if ~isempty(p.Results.MinPoint)
+                min_point = p.Results.MinPoint;
+                if norm(min_point - x) < epsilon
+                    break;
+                end
+            elseif norm(x - xprev) < epsilon
                 break;
             end
             fprev = fcur;
@@ -446,7 +448,10 @@ function [xmin, fmin, func_calculations, trajectory] = Cyclic_Coordinate(f, x0, 
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = Hooke_Jeeves(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = Hooke_Jeeves(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     trajectory = [x0];
     n = length(x0);
     x = x0;
@@ -477,7 +482,14 @@ function [xmin, fmin, func_calculations, trajectory] = Hooke_Jeeves(f, x0, epsil
         if j == n + 1
             j = 1;
             if(x == xprev)
-                if norm(deltas) < epsilon
+                if ~isempty(p.Results.MinPoint)
+                    min_point = p.Results.MinPoint;
+                    if norm(min_point - x) < epsilon
+                        break;
+                    else
+                        deltas = deltas ./ gamma;
+                    end
+                elseif norm(deltas) < epsilon
                     break;
                 else
                     deltas = deltas ./ gamma;
@@ -493,7 +505,10 @@ function [xmin, fmin, func_calculations, trajectory] = Hooke_Jeeves(f, x0, epsil
     func_calculations = func_calculations + 1;
 end
 
-function [xmin, fmin, func_calculations, trajectory] = Random_Search(f, x0, epsilon)
+function [xmin, fmin, func_calculations, trajectory] = Random_Search(f, x0, epsilon, varargin)
+    p = inputParser;
+    addParameter(p, 'MinPoint', [], @(x) isnumeric(x) && (isempty(x) || length(x)==2));
+    parse(p, varargin{:});
     trajectory = [x0];
     n = length(x0);
     x = x0;
@@ -516,7 +531,14 @@ function [xmin, fmin, func_calculations, trajectory] = Random_Search(f, x0, epsi
         j = j + 1;
         if j == m + 1
             j = 1;
-            if alpha < epsilon
+            if ~isempty(p.Results.MinPoint)
+                min_point = p.Results.MinPoint;
+                if norm(min_point - x) < epsilon
+                    break;
+                else
+                    alpha = alpha / gamma;
+                end
+            elseif alpha < epsilon
                 break;
             else
                 alpha = alpha / gamma;
@@ -736,40 +758,38 @@ function plotTableFunctionsLogLog(funcNames, tableData, xLimits, yLimits)
     hold off;
 end
 
-target_precision =1e-3;
-GRADIENT_PRECISION = target_precision/10;
-ONE_D_MINIMIZATION_PRECISION = target_precision/10;
-a = 250;
-f = @(x1, x2) x1.^2 + a * x2.^2;
-x0 = [1, -1];
-syms func(x1, x2);
-func(x1, x2) = f;
-df1 = matlabFunction(diff(func, x1));
-df2 = matlabFunction(diff(func, x2));
-fu = @(x) f(x(1), x(2));
-min = fminsearch(fu, [50, 50]);
-grad = func_gradient(f, x0);
-xrange = [-2, 2];
-yrange = [-2, 2];
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
-[x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
-[x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый градиент");
-[x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
-[x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
-% [x, NSimplex2, iters, trajectory] = regular_simplex(fu, x0', target_precision, 0.1);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
-[x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
-[x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
-[x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
-contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
-
 % target_precision =1e-5;
+% GRADIENT_PRECISION = target_precision/10;
+% ONE_D_MINIMIZATION_PRECISION = target_precision/10;
+% a = 1000;
+% f = @(x1, x2) x1.^2 + a * x2.^2;
+% x0 = [1, -1];
+% syms func(x1, x2);
+% func(x1, x2) = f;
+% df1 = matlabFunction(diff(func, x1));
+% df2 = matlabFunction(diff(func, x2));
+% fu = @(x) f(x(1), x(2));
+% min = [0 0];
+% grad = func_gradient(f, x0);
+% xrange = [-2, 2];
+% yrange = [-2, 2];
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
+% [x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
+% [x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый градиент");
+% [x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
+% [x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision, MinPoint=min);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
+% [x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
+% [x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
+% [x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
+% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
+
+% target_precision =1e-3;
 % GRADIENT_PRECISION = target_precision/10;
 % ONE_D_MINIMIZATION_PRECISION = target_precision/10;
 % x0 = [42, 55];
@@ -779,7 +799,7 @@ contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Ti
 % df1 = matlabFunction(diff(func, x1));
 % df2 = matlabFunction(diff(func, x2));
 % fu = @(x) f(x(1), x(2));
-% min = fminsearch(fu, [50, 50]);
+% min = [50 50];
 % grad = func_gradient(f, x0);
 % xrange = [40, 60];
 % yrange = [40, 60];
@@ -800,9 +820,10 @@ contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Ti
 % contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
 
 
-% target_precision =1e-3;
+% target_precision =1e-5;
 % GRADIENT_PRECISION = target_precision/10;
 % ONE_D_MINIMIZATION_PRECISION = target_precision/10;
+% ONE_D_MINIMIZATION_PRECISION = 1e-4;
 % x0 = [-1, 1];
 % f = @(x1, x2) 100*(x1^2 - x2)^2 + (x1 - 1)^2;
 % syms func(x1, x2);
@@ -836,31 +857,32 @@ contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Ti
 % diffRandom = norm(x-min);
 % contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
 
-% target_precision =1e-5;
-% DERIVATIVE_PRECISION = target_precision/10;
-% ONE_D_MINIMIZATION_PRECISION = target_precision/10;
-% x0 = [0, 0];
-% f = @(x1, x2) (x1^2 + x2 - 11)^2 + (x1 + x2^2 - 7)^2;
-% syms func(x1, x2);
-% func(x1, x2) = f;
-% df1 = matlabFunction(diff(func, x1));
-% df2 = matlabFunction(diff(func, x2));
-% grad = func_gradient(f, x0);
-% min = fminsearch(@(x) f(x(1), x(2)), [50, 50]);
-% xrange = [-5, 5];
-% yrange = [-5, 5];
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
-% [x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
-% [x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый градиент");
-% [x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
-% [x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
-% [x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
-% [x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
-% [x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
-% contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
+target_precision =1e-3;
+DERIVATIVE_PRECISION = target_precision/10;
+ONE_D_MINIMIZATION_PRECISION = target_precision/10;
+x0 = [0, 0];
+%x0 = [-5 0];
+f = @(x1, x2) (x1^2 + x2 - 11)^2 + (x1 + x2^2 - 7)^2;
+syms func(x1, x2);
+func(x1, x2) = f;
+df1 = matlabFunction(diff(func, x1));
+df2 = matlabFunction(diff(func, x2));
+grad = func_gradient(f, x0);
+min = fminsearch(@(x) f(x(1), x(2)), [50, 50]);
+xrange = [-5, 5];
+yrange = [-5, 5];
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Title="Тестовая функция", MinPoint=min);
+[x, y, Nsteepest, trajectory] = steepest_descent(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Наискорейший спуск");
+[x, y, Nconjugatem, trajectory] = conjugate_gradient(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Сопряжённый градиент");
+[x, y, NNewton, trajectory] = Newton(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Ньютона");
+[x, y, NSimplex, trajectory] = Right_Simplex(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Правильный симплекс");
+[x, y, NCoordinate, trajectory] = Cyclic_Coordinate(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Циклический покоординатный спуск");
+[x, y, NHookeJeeves, trajectory] = Hooke_Jeeves(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод Хука-Дживса");
+[x, y, NRandom, trajectory] = Random_Search(f, x0, target_precision);
+contour_plot_with_optimization(f, xrange, yrange, 0.1, Trajectory=trajectory, Title="Метод случайного поиска");
