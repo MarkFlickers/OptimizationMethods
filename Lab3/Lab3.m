@@ -421,12 +421,44 @@ Z = reshape(f, length(x1_unique), length(x2_unique))';
 figure;
 hold on;
 
-contour(x1_unique, x2_unique, Z, 40, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
+contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
+xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+title('Тестовая функция', 'FontSize', 14, 'FontWeight', 'bold');
+
+grid on;
+axis equal;
+hold off;
 
 [max_arg, max_val, NBruteforce] = bruteforce_discrete([x1 x2], f);
 [min_arg, min_val, NPattern] = pattern_search([x1 x2], -f, [1, 1], 40, 0.5, 800, 0.001);
 [min_arg, min_val, NRandom] = random_search([x1 x2], -f, 1000);
-[min_arg, min_val, NGenetic] = genetic([x1 x2], -f, 5, 40, 0.7, 0.05, 'roulette');
+[min_arg, min_val, NGenetic] = genetic([x1 x2], -f, 15, 50, 0.6, 0.03, 'roulette');
 [min_arg, min_val, NAnnealing]= annealing([x1 x2], -f, 10, 100, 50, 400);
 %max_val = -min_val;
 
+[x1, x2, f] = parse_data_file("Функция_П4_В2.txt");
+f_vals_to_minimize = -f;
+
+x1_unique = unique(x1);
+x2_unique = flip(unique(x2));
+Z = reshape(f, length(x1_unique), length(x2_unique))';
+
+
+figure;
+hold on;
+
+contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
+xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+title('Тестовая функция', 'FontSize', 14, 'FontWeight', 'bold');
+
+grid on;
+axis equal;
+hold off;
+
+[max_arg, max_val, NBruteforce] = bruteforce_discrete([x1 x2], f);
+[min_arg, min_val, NPattern] = pattern_search([x1 x2], -f, [1, 1], 40, 0.5, 800, 0.001);
+[min_arg, min_val, NRandom] = random_search([x1 x2], -f, 1000);
+[min_arg, min_val, NGenetic] = genetic([x1 x2], -f, 10, 40, 0.7, 0.05, 'roulette');
+[min_arg, min_val, NAnnealing]= annealing([x1 x2], -f, 10, 100, 50, 400);
