@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -78,9 +79,58 @@ def parseline(l):
     out.append(o)
     return 0
 
+def find_order_section(lines):
+    if "ORDER" in lines:
+        start = lines.index("ORDER")
+    else:
+        start = -1
+    if start != -1 and "/" in lines[start:]:
+        end = lines[start:].index("/")
+    else:
+        end = -1
+    return start, end
+
+def print_matrix(m):
+    for i in range(len(m)):
+        print(i+1, ':', *m[i])
+    print()
+
+def movin(DATA, order_section):
+    print('info: start movin\'')
+    print_matrix(DATA)
+    err = 0
+    for step in range(len(order_section)):
+        f = int(order_section[step][0]) - 1
+        t = int(order_section[step][1]) - 1
+        b = order_section[step][2]
+        print('step = {}, from = {}, to = {}, bird = {}'.format(step, f, t, b))
+        
+        if b == DATA[f][-1] and len(DATA[t]) < BRNCHLEN and (len(DATA[t]) == 0 or DATA[t][-1] == b):
+            DATA[t].append(DATA[f].pop())
+            print_matrix(DATA)
+        else:
+            print('error: step = {}, from = {}, to = {}, alpha = {}'.format(step, f, t, b))
+            err = 1
+            print_matrix(DATA)
+            break
+    print('info: end movin\'')
+    return DATA, err
+    
+
+def countin(DATA, ORDER, LEN):
+    N = LEN
+    L = 0
+    for b in DATA:
+        if len(b) != 0 and all(map(lambda x: x == b[0], b)):
+            L += 1
+    K = len(ORDER)
+    F = 100 * N * L - K
+    return F
+
 # void main(void)
 err = 0
 x = f.read().split('\n')
+#print(x)
 databeg, dataend, brnchcnt = validdata(x)
 out = []
 if databeg < 0 or dataend < 0 or (brnchcnt < 0 or brnchcnt > MAXBRNCHCNT):
@@ -100,7 +150,7 @@ else:
             if err != 0:
                 break
             print(f'info: branch {linenum:2} [{l}] is valid')
-        print('info: second stage start')
+            print('info: second stage start')
         for b in bcnt.keys():
             if bcnt[b] > 0:
                 if bcnt[b] % BRNCHLEN != 0:
@@ -108,10 +158,10 @@ else:
                     print(f'error: bird count is not proportional to {BRNCHLEN}')
                     err = 7
                     break
-        if err != 0:
-            print(f'branch {linenum} error : exit with code {err}')
-        elif err == 7:
+        if err == 7:
             pass
+        elif err != 0:
+            print(f'branch {linenum} error : exit with code {err}')
         else:
             print('success: all good here')
             of = open(args.filename + ".out", 'w')
@@ -122,5 +172,39 @@ else:
             print(f'written: {args.filename + ".out"}')
     else:
         print(f'error: first branch is not valid, will not continue')
+        err = 9
 
+#x = f.read().split('\n')
+#print(x)
+if err:
+    print('info: movin is pointless, data is bad')
+else:
+    obeg, oend = find_order_section(x)
+
+    oerr = 0
+    if obeg >= 0 and oend >= 0:
+        ORDER = x[obeg+1:obeg+oend]
+        oerr = 0
+        print("info: order_section found")
+        print("info: obeg = {}, oend = {}".format(obeg, oend))
+    else:
+        print("warning: order_section not found")
+        print("warning: obeg = {}, oend = {}".format(obeg, oend))
+        oerr = 1
+
+    if oerr:
+        pass
+    else:
+        ORDER = [tuple(i.split()) for i in ORDER]
+        DATA = x[databeg+1:databeg+dataend]
+        for i in range(len(DATA)):
+            DATA[i] = DATA[i].split()
+            if DATA[i][0] == '==':
+                DATA[i].clear()
+        #print(DATA)
+        finalDATA, merr = movin(DATA, ORDER)
+        if merr:
+            print('error: movin ended in error so no Target Function')
+        else:
+            print(f'Target function = {countin(finalDATA, ORDER, BRNCHLEN)}')
 f.close()
