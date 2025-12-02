@@ -3,6 +3,17 @@ from typing import List, Tuple, Dict, Optional
 import heapq
 import itertools
 
+# -----------------------------------------------------------------------------
+# This file was created and refactored with the assistance of ChatGPT (OpenAI).
+# Original logic, algorithms and intent were preserved while improving structure,
+# readability and adherence to SOLID principles.
+#
+# The author of the project retains all rights to the original idea, logic and
+# specifications. ChatGPT is a tool and does not claim authorship or copyright.
+#
+# You are free to use, modify and distribute this file as part of your project.
+# -----------------------------------------------------------------------------
+
 # --- Types -----------------------------------------------------------------
 Bird = int  # 0..255, аналог char в C++
 Branch = List[Bird]
@@ -394,12 +405,15 @@ class AStarSolver:
 
         return SolvedTree()  # empty (no solution)
 
-# ---------------- Example usage (commented) -------------------------------
-# If you want to test, create an initial matrix like:
 # start = [
-#     [1,1,0,0],
-#     [2,0,0,0],
-#     [1,0,0,0],
+#     [2,3,3,1,2,1],
+#     [3,2,1,3,1,2],
+#     [2,1,2,1,2,1],
+#     [1,3,3,3,1,3],
+#     [1,3,1,2,1,2],
+#     [3,2,2,2,3,3],
+#     [0,0,0,0,0,0],
+#     [0,0,0,0,0,0]
 # ]
 # state = TreeState(start)
 # solver = AStarSolver(state)
