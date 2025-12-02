@@ -430,7 +430,7 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
 end
 
 %% ==================== ФУНКЦИЯ ДЛЯ ЗАПУСКА МНОГОКРАТНЫХ ТЕСТОВ ====================
-function run_multiple_tests(func_name, arg, f_vals, global_min_val, N, algorithm_params)
+function run_multiple_tests(func_name, arg, f_vals, global_min_val, global_min_arg, argument_precision, N, algorithm_params)
     % N - количество запусков каждого алгоритма
     % algorithm_params - структура с параметрами для каждого алгоритма
     
@@ -491,10 +491,14 @@ function run_multiple_tests(func_name, arg, f_vals, global_min_val, N, algorithm
             total_calculations = total_calculations + calc;
             
             % Проверка, найден ли глобальный минимум
-            if abs(min_val - global_min_val) == 0
-                success_counts(alg_idx, run_idx) = 1;
+            %if abs(min_val - global_min_val) == 0
+            %    success_counts(alg_idx, run_idx) = 1;
+            %end
+
+            if norm(global_min_arg - min_arg) <= argument_precision
+               success_counts(alg_idx, run_idx) = 1;
             end
-            
+
             % Вычисление текущей доли успешных запусков
             if run_idx == 1
                 success_rates(alg_idx, run_idx) = success_counts(alg_idx, run_idx);
@@ -529,7 +533,8 @@ function run_multiple_tests(func_name, arg, f_vals, global_min_val, N, algorithm
     hold off;
     
     xlabel('Количество запусков, N', 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel('Доля правильных ответов', 'FontSize', 12, 'FontWeight', 'bold');
+
+    ylabel(sprintf('Доля правильных ответов c допуском = %d', argument_precision), 'FontSize', 12, 'FontWeight', 'bold');
     title(sprintf('Сходимость алгоритмов (%s)', func_name), 'FontSize', 14, 'FontWeight', 'bold');
     legend('Location', 'best', 'FontSize', 10);
     grid on;
@@ -568,38 +573,42 @@ end
 N_runs = 100; % Количество запусков каждого алгоритма
 
 %% Функция 1
-% fprintf('=== АНАЛИЗ ФУНКЦИИ 1 ===\n');
-% [x1, x2, f] = parse_data_file("Функция_П2.txt");
-% f_vals_to_minimize = -f;
-% 
-% % Визуализация функции 1
-% x1_unique = unique(x1);
-% x2_unique = flip(unique(x2));
-% Z = reshape(f, length(x1_unique), length(x2_unique))';
-% 
-% figure('Name', 'Функция 1');
-% contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
-% xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
-% ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
-% title('Функция 1: Исходные данные', 'FontSize', 14, 'FontWeight', 'bold');
-% grid on;
-% axis equal;
-% 
-% % Находим глобальный минимум (максимум исходной функции) для сравнения
-% [global_max_arg, global_max_val, ~] = bruteforce_discrete([x1 x2], f);
-% global_min_val = -global_max_val;
-% fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %.6f)\n', ...
-%     global_min_val, global_max_arg(1), global_max_arg(2));
-% 
-% % Параметры алгоритмов для функции 1
-% algorithm_params_func1 = struct();
-% algorithm_params_func1.pattern = struct('initial_step', 40, 'reduction_factor', 0.5, 'nmax', 800, 'target_precision', 0.0001);
-% algorithm_params_func1.random = struct('nmax', 1000);
-% algorithm_params_func1.annealing = struct('nmax', 500, 'alpha', 0.99, 'T0', 2.0);
-% algorithm_params_func1.genetic = struct('population_size', 17, 'num_generations', 25, 'crossover_rate', 0.7, 'mutation_rate', 0.3, 'selection_method', 'tournament');
-% 
-% % Запуск многократного тестирования для функции 1
-% run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, N_runs, algorithm_params_func1);
+fprintf('=== АНАЛИЗ ФУНКЦИИ 1 ===\n');
+[x1, x2, f] = parse_data_file("Функция_П2.txt");
+f_vals_to_minimize = -f;
+
+% Визуализация функции 1
+x1_unique = unique(x1);
+x2_unique = flip(unique(x2));
+Z = reshape(f, length(x1_unique), length(x2_unique))';
+
+figure('Name', 'Функция 1');
+contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
+xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+title('Функция 1: Исходные данные', 'FontSize', 14, 'FontWeight', 'bold');
+grid on;
+axis equal;
+
+% Находим глобальный минимум (максимум исходной функции) для сравнения
+[global_max_arg, global_max_val, ~] = bruteforce_discrete([x1 x2], f);
+global_min_val = -global_max_val;
+global_min_arg = global_max_arg;
+fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %.6f)\n', ...
+    global_min_val, global_max_arg(1), global_max_arg(2));
+
+% Параметры алгоритмов для функции 1
+algorithm_params_func1 = struct();
+algorithm_params_func1.pattern = struct('initial_step', 40, 'reduction_factor', 0.5, 'nmax', 800, 'target_precision', 0.0001);
+algorithm_params_func1.random = struct('nmax', 1000);
+algorithm_params_func1.annealing = struct('nmax', 500, 'alpha', 0.99, 'T0', 2.0);
+algorithm_params_func1.genetic = struct('population_size', 17, 'num_generations', 25, 'crossover_rate', 0.7, 'mutation_rate', 0.3, 'selection_method', 'tournament');
+
+% Запуск многократного тестирования для функции 1
+argument_precision = 0;
+run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func1);
+argument_precision = 1;
+run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func1);
 
 %% Функция 2
 fprintf('\n\n=== АНАЛИЗ ФУНКЦИИ 2 ===\n');
@@ -622,6 +631,7 @@ axis equal;
 % Находим глобальный минимум для функции 2
 [global_max_arg, global_max_val, ~] = bruteforce_discrete([x1 x2], f);
 global_min_val = -global_max_val;
+global_min_arg = global_max_arg;
 fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %.6f)\n', ...
     global_min_val, global_max_arg(1), global_max_arg(2));
 
@@ -633,4 +643,7 @@ algorithm_params_func2.annealing = struct('nmax', 1000, 'alpha', 0.99, 'T0', 2.0
 algorithm_params_func2.genetic = struct('population_size', 20, 'num_generations', 50, 'crossover_rate', 0.85, 'mutation_rate', 0.6, 'selection_method', 'tournament');
 
 % Запуск многократного тестирования для функции 2
-run_multiple_tests('Function2', [x1 x2], f_vals_to_minimize, global_min_val, N_runs, algorithm_params_func2);
+argument_precision = 0;
+run_multiple_tests('Function2', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func2);
+argument_precision = 1;
+run_multiple_tests('Function2', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func2);
