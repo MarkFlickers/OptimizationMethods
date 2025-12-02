@@ -9,6 +9,6 @@ __version__ = "1.3.3.7"
 
 from .BranchIntegrity import BranchIntegrity
 from .temp import PyVersion
-from .astar import AStar
+from .astar import AStarSolver
 
-__all__ = ['BranchIntegrity', 'AStar', 'PyVersion']
+__all__ = ['BranchIntegrity', 'AStarSolver', 'PyVersion']
