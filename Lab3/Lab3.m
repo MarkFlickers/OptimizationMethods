@@ -1,5 +1,7 @@
 clear
+close all
 
+%% ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 function [x1, x2, f] = parse_data_file(filename)
 % Чтение данных с использованием textscan (более эффективно для больших файлов)
 
@@ -169,66 +171,91 @@ function [min_arg, min_val, calculations] = random_search(arg, f_vals, nmax)
     min_val = best_val;
 end
 
-function [min_arg, min_val, calculations] = annealing(arg, f_vals, c0, T0, L, nmax)
+function [min_arg, min_val, calculations] = annealing(arg, f_vals, initial_point, alpha, T0, nmax)
     single_dimension_len = sqrt(length(arg));
-    n = 0;
-    c = c0 / (c0 + 1);
     min_index = 1;
-    calculations = 1;
-    arg1_index_n = min_index;
-    arg2_index_n = min_index;
+    max_index = single_dimension_len;
     
-    %f_rnd = @(x, T) x + L * (rand(1) - 0.5) * (T0/T);
-    %f_rnd = @(x, T) x + L * (2*rand(1) - 1) * max(0.1, T/T0) * (single_dimension_len/10);
-     f_rnd = @(x, T) x + L * (rand(1) - 0.5) * (T / T0);
-    get_composite_index = @(index_1, index_2) index_1 + ((index_2 - 1) * single_dimension_len);
+    calculations = 0;
+    get_composite_index = @(i, j) i + ((j - 1) * single_dimension_len);
     
-    x_n = arg(get_composite_index(arg1_index_n, arg2_index_n), :);
-    x_best = x_n;
-    f_best = f_vals(get_composite_index(arg1_index_n, arg2_index_n));
-    while(n < nmax)
-        %T = T0 * exp(-n/(c0 * nmax));
-        T = T0 * exp(-c * n / nmax);
-        arg1_index_n1 = round(f_rnd(arg1_index_n, T));
-        if(arg1_index_n1 > single_dimension_len)
-            arg1_index_n1 = single_dimension_len;
-        elseif(arg1_index_n1 < min_index)
-            arg1_index_n1 = min_index;
-        end
-        arg2_index_n1 = round(f_rnd(arg2_index_n, T));
-        if(arg2_index_n1 > single_dimension_len)
-            arg2_index_n1 = single_dimension_len;
-        elseif(arg2_index_n1 < min_index)
-            arg2_index_n1 = min_index;
-        end
-        x_n1 = arg(get_composite_index(arg1_index_n1, arg2_index_n1), :);
-
-        f_n = f_vals(get_composite_index(arg1_index_n, arg2_index_n));
-        f_n1 = f_vals(get_composite_index(arg1_index_n1, arg2_index_n1));
-        if(f_n > f_n1)
-            P = 1;
+    % Параметры, подобранные эмпирически для сетки ~40x40
+    %T0 = 2.0;           % Высокая начальная температура для исследования
+    %alpha = 0.99;       % Очень медленное охлаждение
+    base_step = max(1, floor(max_index / 8));  % Шаг ~5 для сетки 40x40
+    
+    % Текущее состояние
+    current_idx = initial_point;
+    current_idx(1) = max(min_index, min(max_index, current_idx(1)));
+    current_idx(2) = max(min_index, min(max_index, current_idx(2)));
+    
+    current_val = f_vals(get_composite_index(current_idx(1), current_idx(2)));
+    calculations = calculations + 1;
+    
+    best_idx = current_idx;
+    best_val = current_val;
+    
+    T = T0;
+    
+    % Главный цикл с двумя фазами
+    for iter = 1:nmax
+        % Определяем фазу
+        if iter < nmax/2
+            % Фаза 1: исследование (большие шаги)
+            step_size = base_step * (1 + 2*rand());  % Случайный шаг
+            T_phase = T;  % Высокая температура
         else
-            P = exp(-(f_n1 - f_n)/T);
-
+            % Фаза 2: уточнение (маленькие шаги)
+            step_size = max(1, base_step * rand());  % Меньший шаг
+            T_phase = T * 0.3;  % Низкая температура для точности
         end
+        
+        % Генерация новой точки
+        angle = 2 * pi * rand();
+        dx = round(step_size * cos(angle));
+        dy = round(step_size * sin(angle));
+        
+        new_idx = current_idx + [dx, dy];
+        new_idx(1) = max(min_index, min(max_index, new_idx(1)));
+        new_idx(2) = max(min_index, min(max_index, new_idx(2)));
+        
+        % Вычисление
+        new_val = f_vals(get_composite_index(new_idx(1), new_idx(2)));
         calculations = calculations + 1;
         
-        if(rand(1) < P)
-            arg1_index_n = arg1_index_n1;
-            arg2_index_n = arg2_index_n1;
-            x_n = x_n1;
-            f_n = f_n1;
+        % Принятие решения с температурой фазы
+        delta = new_val - current_val;
+        
+        if delta < 0
+            accept = true;
+        else
+            probability = exp(-delta / (T_phase + eps));
+            accept = (rand() < probability);
         end
-
-        if (f_best > f_n)
-            x_best = x_n;
-            f_best = f_n;
+        
+        if accept
+            current_idx = new_idx;
+            current_val = new_val;
         end
-
-        n = n + 1;
+        
+        % Обновление лучшего
+        if new_val < best_val
+            best_idx = new_idx;
+            best_val = new_val;
+        end
+        
+        % Охлаждение
+        T = T * alpha;
+        
+        % Ранняя остановка при нахождении глобального минимума
+        % (предполагаем, что глобальный минимум известен или можем оценить)
+        %if iter > 50 && best_val < -0.01  % Примерное условие
+        %    break;
+        %end
     end
-    min_arg = x_best;
-    min_val = f_best;
+    
+    min_arg = arg(get_composite_index(best_idx(1), best_idx(2)), :);
+    min_val = best_val;
 end
 
 function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size, num_generations, crossover_rate, mutation_rate, selection_method)
@@ -300,7 +327,7 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
     end
 
     function mutated_population = mutate(population, mutation_rate, min_index, max_index)
-    % Мутация - случайное изменение генов
+        % Мутация - случайное изменение генов
         mutated_population = population;
         for i = 1:size(population, 1)
             if rand() < mutation_rate
@@ -315,7 +342,7 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
     end
 
     function [new_population, new_fitness] = selection(population, fitness, offspring, offspring_fitness, method)
-    % Селекция - формирование нового поколения
+        % Селекция - формирование нового поколения
         combined_population = [population; offspring];
         combined_fitness = [fitness; offspring_fitness];
         
@@ -353,8 +380,8 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
     end
 
     function selected_indices = roulette_selection(probabilities, num_selections)
-    % probabilities - вектор вероятностей выбора каждой особи
-    % num_selections - сколько особей нужно отобрать
+        % probabilities - вектор вероятностей выбора каждой особи
+        % num_selections - сколько особей нужно отобрать
     
         cum_probs = cumsum(probabilities); % Создаем кумулятивную сумму вероятностей
         selected_indices = zeros(num_selections, 1);
@@ -394,14 +421,6 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
         
         % 4. Селекция
         [population, fitness] = selection(population, fitness, offspring, offspring_fitness, selection_method);
-        
-        % Сохранение истории
-        [best_fit, best_idx] = min(fitness);
-        
-        % Проверка условий выхода (ранняя остановка)
-        % if gen > 10
-        %     break;
-        % end
     end
     
     % Нахождение лучшей особи
@@ -410,55 +429,208 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
     min_arg = arg(get_composite_index(best_individual(1), best_individual(2)), :);
 end
 
-[x1, x2, f] = parse_data_file("Функция_П2.txt");
-f_vals_to_minimize = -f;
+%% ==================== ФУНКЦИЯ ДЛЯ ЗАПУСКА МНОГОКРАТНЫХ ТЕСТОВ ====================
+function run_multiple_tests(func_name, arg, f_vals, global_min_val, N, algorithm_params)
+    % N - количество запусков каждого алгоритма
+    % algorithm_params - структура с параметрами для каждого алгоритма
+    
+    single_dimension_len = sqrt(length(arg));
+    
+    % Подготовка данных для статистики
+    algorithms = {'Pattern Search', 'Random Search', 'Simulated Annealing', 'Genetic Algorithm'};
+    n_algorithms = length(algorithms);
+    
+    % Массивы для хранения результатов
+    success_counts = zeros(n_algorithms, N);
+    success_rates = zeros(n_algorithms, N);
+    avg_calculations = zeros(n_algorithms, 1);
+    
+    % Для детерминированных алгоритмов (Pattern Search) будем использовать случайные начальные точки
+    rng('shuffle'); % Инициализация генератора случайных чисел
+    
+    fprintf('\n=== Тестирование на функции: %s ===\n', func_name);
+    fprintf('Количество запусков каждого алгоритма: %d\n', N);
+    fprintf('Глобальный минимум: %.6f\n', global_min_val);
+    
+    % Запуск каждого алгоритма N раз
+    for alg_idx = 1:n_algorithms
+        fprintf('\nАлгоритм: %s\n', algorithms{alg_idx});
+        
+        total_calculations = 0;
+        
+        for run_idx = 1:N
+            % Выбор алгоритма
+            switch alg_idx
+                case 1 % Pattern Search
+                    % Случайная начальная точка
+                    initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
+                    [min_arg, min_val, calc] = pattern_search(arg, f_vals, initial_point, ...
+                        algorithm_params.pattern.initial_step, ...
+                        algorithm_params.pattern.reduction_factor, ...
+                        algorithm_params.pattern.nmax, ...
+                        algorithm_params.pattern.target_precision);
+                    
+                case 2 % Random Search
+                    [min_arg, min_val, calc] = random_search(arg, f_vals, algorithm_params.random.nmax);
+                    
+                case 3 % Simulated Annealing
+                    % Случайная начальная точка
+                    initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
+                    [min_arg, min_val, calc] = annealing(arg, f_vals, initial_point, ...
+                        algorithm_params.annealing.alpha, algorithm_params.annealing.T0, algorithm_params.annealing.nmax);
+                    
+                case 4 % Genetic Algorithm
+                    [min_arg, min_val, calc] = genetic(arg, f_vals, ...
+                        algorithm_params.genetic.population_size, ...
+                        algorithm_params.genetic.num_generations, ...
+                        algorithm_params.genetic.crossover_rate, ...
+                        algorithm_params.genetic.mutation_rate, ...
+                        algorithm_params.genetic.selection_method);
+            end
+            
+            total_calculations = total_calculations + calc;
+            
+            % Проверка, найден ли глобальный минимум
+            if abs(min_val - global_min_val) == 0
+                success_counts(alg_idx, run_idx) = 1;
+            end
+            
+            % Вычисление текущей доли успешных запусков
+            if run_idx == 1
+                success_rates(alg_idx, run_idx) = success_counts(alg_idx, run_idx);
+            else
+                success_rates(alg_idx, run_idx) = sum(success_counts(alg_idx, 1:run_idx)) / run_idx;
+            end
+            
+            % Прогресс
+            if mod(run_idx, max(1, floor(N/10))) == 0
+                fprintf('  Запуск %d/%d: успешность = %.2f%%\n', ...
+                    run_idx, N, 100 * success_rates(alg_idx, run_idx));
+            end
+        end
+        
+        avg_calculations(alg_idx) = total_calculations / N;
+        
+        fprintf('Итоговая успешность: %.2f%%\n', 100 * success_rates(alg_idx, end));
+        fprintf('Среднее число вычислений функции: %.1f\n', avg_calculations(alg_idx));
+    end
+    
+    % Построение графика
+    figure('Position', [100, 100, 1200, 600]);
+    
+    % График 1: Доля успешных запусков
+    subplot(1, 2, 1);
+    hold on;
+    colors = lines(n_algorithms);
+    for alg_idx = 1:n_algorithms
+        plot(1:N, success_rates(alg_idx, :), 'LineWidth', 2, 'Color', colors(alg_idx, :), ...
+            'DisplayName', sprintf('%s (%.1f%%)', algorithms{alg_idx}, 100*success_rates(alg_idx, end)));
+    end
+    hold off;
+    
+    xlabel('Количество запусков, N', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel('Доля правильных ответов', 'FontSize', 12, 'FontWeight', 'bold');
+    title(sprintf('Сходимость алгоритмов (%s)', func_name), 'FontSize', 14, 'FontWeight', 'bold');
+    legend('Location', 'best', 'FontSize', 10);
+    grid on;
+    xlim([1, N]);
+    ylim([0, 1.05]);
+    
+    % График 2: Среднее число вычислений функции
+    subplot(1, 2, 2);
+    bar_data = [avg_calculations, 100*success_rates(:, end)];
+    
+    % Нормализация для двух осей
+    yyaxis left;
+    bar(1:n_algorithms, bar_data(:, 1));
+    ylabel('Среднее число вычислений функции', 'FontSize', 12, 'FontWeight', 'bold');
+    
+    yyaxis right;
+    plot(1:n_algorithms, bar_data(:, 2), 'ro-', 'LineWidth', 2, 'MarkerSize', 8);
+    ylabel('Итоговая успешность, %', 'FontSize', 12, 'FontWeight', 'bold');
+    ylim([0, 105]);
+    
+    set(gca, 'XTick', 1:n_algorithms, 'XTickLabel', algorithms, 'FontSize', 10);
+    title('Эффективность алгоритмов', 'FontSize', 14, 'FontWeight', 'bold');
+    grid on;
+    
+    % Общий заголовок
+    sgtitle(sprintf('Сравнение алгоритмов оптимизации (N=%d запусков)', N), 'FontSize', 16, 'FontWeight', 'bold');
+    
+    % Сохранение результатов в файл
+    results_table = table(algorithms', success_rates(:, end), avg_calculations, ...
+        'VariableNames', {'Algorithm', 'SuccessRate', 'AvgCalculations'});
+    disp(results_table);
+end
 
-x1_unique = unique(x1);
-x2_unique = flip(unique(x2));
-Z = reshape(f, length(x1_unique), length(x2_unique))';
+%% ==================== ОСНОВНОЙ КОД ====================
+% Параметры тестирования
+N_runs = 100; % Количество запусков каждого алгоритма
 
+%% Функция 1
+% fprintf('=== АНАЛИЗ ФУНКЦИИ 1 ===\n');
+% [x1, x2, f] = parse_data_file("Функция_П2.txt");
+% f_vals_to_minimize = -f;
+% 
+% % Визуализация функции 1
+% x1_unique = unique(x1);
+% x2_unique = flip(unique(x2));
+% Z = reshape(f, length(x1_unique), length(x2_unique))';
+% 
+% figure('Name', 'Функция 1');
+% contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
+% xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
+% ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
+% title('Функция 1: Исходные данные', 'FontSize', 14, 'FontWeight', 'bold');
+% grid on;
+% axis equal;
+% 
+% % Находим глобальный минимум (максимум исходной функции) для сравнения
+% [global_max_arg, global_max_val, ~] = bruteforce_discrete([x1 x2], f);
+% global_min_val = -global_max_val;
+% fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %.6f)\n', ...
+%     global_min_val, global_max_arg(1), global_max_arg(2));
+% 
+% % Параметры алгоритмов для функции 1
+% algorithm_params_func1 = struct();
+% algorithm_params_func1.pattern = struct('initial_step', 40, 'reduction_factor', 0.5, 'nmax', 800, 'target_precision', 0.0001);
+% algorithm_params_func1.random = struct('nmax', 1000);
+% algorithm_params_func1.annealing = struct('nmax', 500, 'alpha', 0.99, 'T0', 2.0);
+% algorithm_params_func1.genetic = struct('population_size', 17, 'num_generations', 25, 'crossover_rate', 0.7, 'mutation_rate', 0.3, 'selection_method', 'tournament');
+% 
+% % Запуск многократного тестирования для функции 1
+% run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, N_runs, algorithm_params_func1);
 
-figure;
-hold on;
-
-contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
-xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
-title('Тестовая функция', 'FontSize', 14, 'FontWeight', 'bold');
-
-grid on;
-axis equal;
-hold off;
-
-[max_arg, max_val, NBruteforce] = bruteforce_discrete([x1 x2], f);
-[min_arg, min_val, NPattern] = pattern_search([x1 x2], -f, [1, 1], 40, 0.5, 800, 0.001);
-[min_arg, min_val, NRandom] = random_search([x1 x2], -f, 1000);
-[min_arg, min_val, NGenetic] = genetic([x1 x2], -f, 15, 50, 0.6, 0.03, 'roulette');
-[min_arg, min_val, NAnnealing]= annealing([x1 x2], -f, 10, 100, 50, 400);
-%max_val = -min_val;
-
+%% Функция 2
+fprintf('\n\n=== АНАЛИЗ ФУНКЦИИ 2 ===\n');
 [x1, x2, f] = parse_data_file("Функция_П4_В2.txt");
 f_vals_to_minimize = -f;
 
+% Визуализация функции 2
 x1_unique = unique(x1);
 x2_unique = flip(unique(x2));
 Z = reshape(f, length(x1_unique), length(x2_unique))';
 
-
-figure;
-hold on;
-
-contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5], 'DisplayName', 'Линии уровня функции');
+figure('Name', 'Функция 2');
+contour(x1_unique, x2_unique, Z, 60, 'LineWidth', 0.5, 'LineColor', [0.5 0.5 0.5]);
 xlabel('x_1', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('x_2', 'FontSize', 12, 'FontWeight', 'bold');
-title('Тестовая функция', 'FontSize', 14, 'FontWeight', 'bold');
-
+title('Функция 2: Исходные данные', 'FontSize', 14, 'FontWeight', 'bold');
 grid on;
 axis equal;
-hold off;
 
-[max_arg, max_val, NBruteforce] = bruteforce_discrete([x1 x2], f);
-[min_arg, min_val, NPattern] = pattern_search([x1 x2], -f, [1, 1], 40, 0.5, 800, 0.001);
-[min_arg, min_val, NRandom] = random_search([x1 x2], -f, 1000);
-[min_arg, min_val, NGenetic] = genetic([x1 x2], -f, 10, 40, 0.7, 0.05, 'roulette');
-[min_arg, min_val, NAnnealing]= annealing([x1 x2], -f, 10, 100, 50, 400);
+% Находим глобальный минимум для функции 2
+[global_max_arg, global_max_val, ~] = bruteforce_discrete([x1 x2], f);
+global_min_val = -global_max_val;
+fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %.6f)\n', ...
+    global_min_val, global_max_arg(1), global_max_arg(2));
+
+% Параметры алгоритмов для функции 2 (другие параметры)
+algorithm_params_func2 = struct();
+algorithm_params_func2.pattern = struct('initial_step', 30, 'reduction_factor', 0.85, 'nmax', 1000, 'target_precision', 0.00001);
+algorithm_params_func2.random = struct('nmax', 1000);
+algorithm_params_func2.annealing = struct('nmax', 1000, 'alpha', 0.99, 'T0', 2.0);
+algorithm_params_func2.genetic = struct('population_size', 20, 'num_generations', 50, 'crossover_rate', 0.85, 'mutation_rate', 0.6, 'selection_method', 'tournament');
+
+% Запуск многократного тестирования для функции 2
+run_multiple_tests('Function2', [x1 x2], f_vals_to_minimize, global_min_val, N_runs, algorithm_params_func2);
