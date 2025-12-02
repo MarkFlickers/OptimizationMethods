@@ -30,7 +30,7 @@
             "name": "Python launch",
             "type": "debugpy",
             "request": "launch",
-            "program": "GroupProblem/True_Python/temp.py",
+            "program": "GroupProblem/True_Python/tests/pyrun.py",
             //"python": "C:/Users/Andrey Chasovskih/AppData/Local/Programs/Python/Python314/python.exe",
             "args": [],
             "console": "integratedTerminal"
