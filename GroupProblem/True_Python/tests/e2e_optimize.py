@@ -6,6 +6,7 @@
 
 import time
 import json
+import sys
 import os
 from datetime import datetime
 from os.path import join
@@ -19,6 +20,19 @@ from src import (
     AStarSolverOptimized,
     State
 )
+
+class TeeLogger:
+    def __init__(self, logfile):
+        self.log = open(logfile, "w", encoding="utf-8")
+        self.stdout = sys.stdout
+
+    def write(self, text):
+        self.stdout.write(text)
+        self.log.write(text)
+
+    def flush(self):
+        self.stdout.flush()
+        self.log.flush()
 
 # ============================================================================
 # Base class for all steps
@@ -273,6 +287,7 @@ def run_e2e_optimize(
     # Перебираем все входные файлы из config.json
     for fname in input_files:
         input_path = os.path.join(inputs_dir, fname)
+
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Input file not found: {input_path}")
 
@@ -280,6 +295,10 @@ def run_e2e_optimize(
         test_name = os.path.splitext(fname)[0]
         test_output_dir = os.path.join(output_dir, test_name)
         os.makedirs(test_output_dir, exist_ok=True)
+
+        # LOGGER
+        log_path = os.path.join(test_output_dir, f"{test_name}.log")
+        sys.stdout = TeeLogger(log_path)
 
         # читаем входной файл (строки)
         with open(input_path, "r") as fp:
@@ -333,4 +352,5 @@ def run_e2e_optimize(
         with open(txt_output_path, "w") as fp:
             fp.write(full_text)
 
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Completed: {fname} -> {test_output_dir}")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Completed: saved {fname} to {test_output_dir}")
+        sys.stdout = sys.__stdout__
