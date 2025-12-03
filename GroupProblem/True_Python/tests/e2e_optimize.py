@@ -1,11 +1,13 @@
-#!/usr/bin/env python3
+
 # -----------------------------------------------------------------------------
 # This file was created and refactored with the assistance of ChatGPT (OpenAI).
 # Logic, algorithms and semantics of the original C++ project have been preserved.
 # -----------------------------------------------------------------------------
 
+import time
 import json
 import os
+from datetime import datetime
 from os.path import join
 from os import makedirs
 
@@ -68,7 +70,6 @@ class ParseStep(PipelineStep):
     name = "parse"
 
     def run(self, ctx: PipelineContext):
-        print("[step] PARSE")
 
         input_file = ctx.config["input_file"]
         lines = ctx.load_input_lines(input_file)
@@ -102,7 +103,6 @@ class ApplyOrderStep(PipelineStep):
     name = "apply_order"
 
     def run(self, ctx: PipelineContext):
-        print("[step] APPLY ORDER")
 
         DATA = ctx.data["DATA"]
         BRLEN = ctx.data["BRANCH_LEN"]
@@ -156,7 +156,6 @@ class SolveStep(PipelineStep):
     name = "solve"
 
     def run(self, ctx: PipelineContext):
-        print("[step] SOLVE")
 
         # 1. Берём текущие данные после parse/apply_order
         DATA = ctx.data["DATA"]
@@ -168,6 +167,12 @@ class SolveStep(PipelineStep):
         solver = AStarSolverOptimized(start_state)
         steps_count, moves, result_state = solver.solve()
 
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - {steps_count} steps")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - solve matrix:")
+
+        for i, row in enumerate(result_state.branches):
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{i+1:02d}] -", row)
+        
         # 4. Формируем выходной JSON
         payload = {
             "steps": steps_count,
@@ -192,7 +197,6 @@ class VerifyStep(PipelineStep):
     name = "verify"
 
     def run(self, ctx: PipelineContext):
-        print("[step] VERIFY")
 
         solution = ctx.data["solution"]
         resultant = solution["result_tree"]
@@ -204,7 +208,7 @@ class VerifyStep(PipelineStep):
             if any(x != nonzero[0] for x in nonzero):
                 raise RuntimeError("Verification failed: branch not uniform")
 
-        print("Verified: OK")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Verified: OK")
         return ctx
 
 
@@ -233,11 +237,18 @@ class E2EPipeline:
         for s in step_list:
             if s not in self.steps:
                 raise ValueError(f"Unknown step: {s}")
-            self.ctx = self.steps[s].run(self.ctx)
+            step_obj = self.steps[s]
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} = STEP = {s}")
+
+            t0 = time.perf_counter()
+            self.ctx = step_obj.run(self.ctx)
+            t1 = time.perf_counter()
+
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - [{s} time]: {t1 - t0:.4f} sec")
         return self.ctx
 
     def run_all(self):
-        """Standard pipeline: parse → apply_order → solve → verify"""
+        """Standard pipeline: parse -> apply_order -> solve -> verify"""
         return self.run(["parse", "apply_order", "solve", "verify"])
 
     def validate_only(self):
@@ -274,6 +285,11 @@ def run_e2e_optimize(
         with open(input_path, "r") as fp:
             content = fp.read()
 
+        # Сохраняем копию входного файла в Outputs с тем же именем, но .txt
+        txt_copy_path = os.path.join(test_output_dir, f"{test_name}.txt")
+        with open(txt_copy_path, "w") as fp:
+            fp.write(content)
+
         # формируем inputs dict: { file_name → content }
         inputs_map = {fname: content}
 
@@ -293,4 +309,28 @@ def run_e2e_optimize(
         else:
             pipeline.run(step_sequence)
 
-        print(f"Completed: {fname} -> {test_output_dir}")
+        # 1. Берём исходный DATA (как текст)
+        data_text = content.strip()
+
+        # 2. Собираем ORDER из solution
+        sol = ctx.data.get("solution")
+        order_lines = []
+
+        if sol is not None:
+            for mv in sol["moves"]:
+                s = mv["src_branch"] + 1
+                d = mv["dst_branch"] + 1
+                b = chr(mv["bird"] + ord("A") - 1)
+                order_lines.append(f"{s} {d} {b}")
+
+        # 3. Собираем текст
+        full_text = data_text + "\n\nORDER\n"
+        full_text += "\n".join(order_lines)
+        full_text += "\n/"
+
+        # 4. Сохраняем
+        txt_output_path = os.path.join(test_output_dir, f"{test_name}.txt")
+        with open(txt_output_path, "w") as fp:
+            fp.write(full_text)
+
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Completed: {fname} -> {test_output_dir}")
