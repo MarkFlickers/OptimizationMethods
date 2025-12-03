@@ -149,7 +149,7 @@ class AStarSolverOptimized:
         moves.reverse()
         return moves
 
-    def solve(self) -> (int, List[Move], State):
+    def solve(self) -> tuple[int, List[Move], State]:
         open_heap: List[tuple] = []
         g_scores: Dict[State, int] = {}
         came_from: Dict[State, (Optional[State], Optional[Move])] = {}
