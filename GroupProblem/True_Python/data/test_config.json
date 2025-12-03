@@ -1,0 +1,14 @@
+{
+    "input_files": [
+        "BIRDS_3.txt",
+        "BIRDS_4.txt",
+        "BIRDS_5.txt"
+    ],
+
+    "steps": [
+        "parse",
+        "apply_order",
+        "solve",
+        "verify"
+    ]
+}
