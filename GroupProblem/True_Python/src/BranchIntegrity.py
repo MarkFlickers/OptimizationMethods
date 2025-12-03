@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-import argparse
+from datetime import datetime
 
 # -----------------------------------------------------------------------------
 # This file was created and refactored with the assistance of ChatGPT (OpenAI).
@@ -94,7 +93,7 @@ class BranchProcessor:
         err = 0
         l = self.removecomments(self.lines[databeg+1]).rstrip()
         if self.validbranch(l.split(' ')) == 0:
-            print(f'info: branch {linenum:2} [{l}] is valid')
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
             self.BRNCHLEN = len(l.split(' '))
             self.parseline(l)
             for el in self.lines[databeg+2: dataend]:
@@ -103,7 +102,7 @@ class BranchProcessor:
                 err = self.parseline(l)
                 if err != 0:
                     break
-                print(f'info: branch {linenum:2} [{l}] is valid')
+                print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
             # Проверка на кратность
             for b in self.bcnt.keys():
                 if self.bcnt[b] > 0 and self.bcnt[b] % self.BRNCHLEN != 0:
@@ -137,7 +136,7 @@ class OrderProcessor:
         print()
 
     def movin(self, DATA, order_section):
-        print('info: start movin\'')
+        print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - start movin\'')
         self.print_matrix(DATA)
         err = 0
         for step in range(len(order_section)):
@@ -153,7 +152,7 @@ class OrderProcessor:
                 err = 1
                 self.print_matrix(DATA)
                 break
-        print('info: end movin\'')
+        print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - end movin\'')
         return DATA, err
 
     def countin(self, DATA, ORDER):
@@ -196,7 +195,7 @@ class BranchIntegrity:
         self.err, self.branches, self.BRNCHLEN, _ = bp.process_branches(databeg, dataend)
 
         if self.err:
-            print('info: movin is pointless, data is bad')
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - movin is pointless, data is bad')
             return
 
         op = OrderProcessor(self.lines, self.BRNCHLEN)
@@ -222,7 +221,7 @@ class BranchIntegrity:
 #     parser = argparse.ArgumentParser()
 #     parser.add_argument('filename', nargs='?', default='input.txt')
 #     args = parser.parse_args()
-#     print("info: filename provided:", args.filename)
+#     print("[INFO] filename provided:", args.filename)
 
 #     file = BranchIntegrity(args.filename)
 #     file.run()
