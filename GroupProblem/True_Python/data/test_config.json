@@ -1,6 +1,6 @@
 {
     "input_files": [
-        "BIRDS_13.txt"
+        "BIRDS_5.txt"
     ],
     "available_files": [
         "BIRDS_3.txt",
@@ -19,7 +19,10 @@
         "BIRDS__3.txt"
     ],
     "steps": [
-        "parse"
+        "parse",
+        "apply_order", 
+        "solve",
+        "verify"
     ],
     "available_steps": [
         "parse",
