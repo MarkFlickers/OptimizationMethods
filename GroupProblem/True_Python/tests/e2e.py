@@ -1,78 +1,75 @@
 #!/usr/bin/env python3
-import os
-import json
-import subprocess
-from os.path import dirname, join
-from os import makedirs
-
-from src import BranchProcessor, OrderProcessor
-from src import TreeState, AStarSolver
-
 # -----------------------------------------------------------------------------
 # This file was created and refactored with the assistance of ChatGPT (OpenAI).
-# Original logic, algorithms and intent were preserved while improving structure,
-# readability and adherence to SOLID principles.
-#
-# The author of the project retains all rights to the original idea, logic and
-# specifications. ChatGPT is a tool and does not claim authorship or copyright.
-#
-# You are free to use, modify and distribute this file as part of your project.
+# Logic, algorithms and semantics of the original C++ project have been preserved.
 # -----------------------------------------------------------------------------
 
-def save_state_if_enabled(save_state, state, state_path, key, value):
-    if save_state:
-        state[key] = value
-        with open(state_path, "w") as fp:
-            json.dump(state, fp, indent=2)
+import json
+import os
+from os.path import join
+from os import makedirs
 
-def load_state_value(save_state, state, key, default):
-    if save_state:
-        return state.get(key, default)
-    return default
+from src import (
+    BranchProcessor,
+    OrderProcessor,
+    TreeState,
+    AStarSolver,
+)
 
-def check_step(state, step):
-    return state["last_step"] is None or state["last_step"] == step
+# ============================================================================
+# Base class for all steps
+# ============================================================================
+
+class PipelineStep:
+    """Abstract pipeline step."""
+    name = "base_step"
+
+    def run(self, ctx):
+        raise NotImplementedError
 
 
-def run_e2e(test_name: str, data_root: str, save_state: bool = False):
+# ============================================================================
+# Context object shared between steps
+# ============================================================================
+
+class PipelineContext:
     """
-    test_name  — имя теста, папка в data_root/tests/<test_name>
-    data_root  — корневая папка проекта, где лежат data/tests
+    Stores:
+      - input files content
+      - configuration
+      - parsed structures
+      - output directory
     """
+    def __init__(self, inputs: dict[str, str], output_dir: str, config: dict):
+        self.inputs = inputs              # {"file": "content"}
+        self.output_dir = output_dir      # folder for results
+        self.config = config              # parsed test_config.json
+        self.data = {}                    # intermediate results: DATA, BRLEN, solution, etc.
 
-    tests_dir = join(data_root, "tests")
-    test_dir = join(tests_dir, test_name)
-    run_dir = join(tests_dir, "run_" + test_name)
+        makedirs(output_dir, exist_ok=True)
 
-    makedirs(run_dir, exist_ok=True)
+    def save_json(self, name, payload):
+        path = join(self.output_dir, name)
+        with open(path, "w") as fp:
+            json.dump(payload, fp, indent=2)
+        return path
 
-    # ----------------------- load config --------------------------------------
-    config_path = join(test_dir, "test_config.json")
-    with open(config_path, "r") as fp:
-        config = json.load(fp)
+    def load_input_lines(self, file_name):
+        return self.inputs[file_name].splitlines()
 
-    input_text_path = join(test_dir, config["input_file"])
-    with open(input_text_path, "r") as fp:
-        lines = [x.strip() for x in fp.readlines()]
 
-    # ----------------------- load / init state.json ---------------------------
-    state_path = join(run_dir, "state.json")
-    if save_state and os.path.exists(state_path):
-        with open(state_path, "r") as fp:
-            state = json.load(fp)
-    else:
-        state = {"last_step": None}
-        if save_state:
-            with open(state_path, "w") as fp:
-                json.dump(state, fp)
+# ============================================================================
+# Step 1 — Parse input
+# ============================================================================
 
-    disabled = set(config.get("disabled_steps", []))
+class ParseStep(PipelineStep):
+    name = "parse"
 
-    # ======================= STEP 1 — PARSE DATA ===============================
-    if "parse" not in disabled and check_step(state, "parse"):
-        print("[step] parse input")
+    def run(self, ctx: PipelineContext):
+        print("[step] PARSE")
 
-        save_state_if_enabled(save_state, state, state_path, "last_step", "parse")
+        input_file = ctx.config["input_file"]
+        lines = ctx.load_input_lines(input_file)
 
         bp = BranchProcessor(lines)
         start_data_idx, end_data_idx, branch_count = bp.validdata()
@@ -81,27 +78,34 @@ def run_e2e(test_name: str, data_root: str, save_state: bool = False):
         if err != 0:
             raise RuntimeError(f"Parsing error: code={err}")
 
-        parsed_path = join(run_dir, "parsed_data.json")
-        with open(parsed_path, "w") as fp:
-            json.dump({
-                "DATA": DATA,
-                "BRANCH_LEN": BRLEN,
-                "BIRDS_COUNT": CNT,
-            }, fp, indent=2)
+        ctx.data["DATA"] = DATA
+        ctx.data["BRANCH_LEN"] = BRLEN
+        ctx.data["BIRDS_COUNT"] = CNT
 
-        save_state_if_enabled(save_state, state, state_path, "parsed_data", parsed_path)
-        save_state_if_enabled(save_state, state, state_path, "branch_len", BRLEN)
-        save_state_if_enabled(save_state, state, state_path, "DATA", DATA)
-        save_state_if_enabled(save_state, state, state_path, "last_step", None)
+        ctx.save_json("parsed_data.json", {
+            "DATA": DATA,
+            "BRANCH_LEN": BRLEN,
+            "BIRDS_COUNT": CNT,
+        })
 
-    # ======================= STEP 2 — APPLY ORDER ==============================
-    if "apply_order" not in disabled and check_step(state, "apply_order"):
-        print("[step] apply ORDER section")
+        return ctx
 
-        save_state_if_enabled(save_state, state, state_path, "last_step", "apply_order")
 
-        DATA = load_state_value(save_state, state, "DATA", None)
-        BRLEN = load_state_value(save_state, state, "branch_len", None)
+# ============================================================================
+# Step 2 — Apply ORDER section
+# ============================================================================
+
+class ApplyOrderStep(PipelineStep):
+    name = "apply_order"
+
+    def run(self, ctx: PipelineContext):
+        print("[step] APPLY ORDER")
+
+        DATA = ctx.data["DATA"]
+        BRLEN = ctx.data["BRANCH_LEN"]
+
+        input_file = ctx.config["input_file"]
+        lines = ctx.load_input_lines(input_file)
 
         op = OrderProcessor(lines, BRLEN)
         order_start, rel_end = op.find_order_section()
@@ -109,94 +113,179 @@ def run_e2e(test_name: str, data_root: str, save_state: bool = False):
         if order_start != -1 and rel_end != -1:
             order_lines = lines[order_start+1: order_start+rel_end]
             moves = [l.split() for l in order_lines if l.strip()]
-            # each move is [from, to, BIRDCHAR]
         else:
             moves = []
 
-        # replay order
+        # Apply moves
         for i, m in enumerate(moves):
-            f = int(m[0]) - 1
-            t = int(m[1]) - 1
-            b = m[2]
-            print(f"  applying order move #{i}: {m}")
+            src = int(m[0]) - 1
+            dst = int(m[1]) - 1
+            bird_char = m[2]
+            bird_num = ord(bird_char) - ord('A') + 1
 
-            bird_num = ord(b) - ord('A') + 1
+            if len(DATA[src]) == 0:
+                raise RuntimeError("ORDER: source empty")
 
-            # basic check: top bird matches
-            if len(DATA[f]) == 0:
-                raise RuntimeError("ORDER move: source empty")
-            if DATA[f][-1] != bird_num:
-                raise RuntimeError("ORDER move: wrong bird on source")
+            if DATA[src][-1] != bird_num:
+                raise RuntimeError("ORDER: wrong bird on source")
 
-            # check destination
-            if len(DATA[t]) >= BRLEN:
-                raise RuntimeError("ORDER move: dest full")
-            if len(DATA[t]) > 0 and DATA[t][-1] != bird_num:
-                raise RuntimeError("ORDER move: cannot stack different birds")
+            if len(DATA[dst]) >= BRLEN:
+                raise RuntimeError("ORDER: destination full")
 
-            DATA[t].append(DATA[f].pop())
+            if len(DATA[dst]) > 0 and DATA[dst][-1] != bird_num:
+                raise RuntimeError("ORDER: stack mismatch")
 
-        order_applied_path = join(run_dir, "order_applied.json")
-        with open(order_applied_path, "w") as fp:
-            json.dump({"DATA_AFTER_ORDER": DATA}, fp, indent=2)
+            DATA[dst].append(DATA[src].pop())
 
-        save_state_if_enabled(save_state, state, state_path, "DATA", DATA)
-        save_state_if_enabled(save_state, state, state_path, "order_applied", order_applied_path)
-        save_state_if_enabled(save_state, state, state_path, "last_step", None)
+        ctx.data["DATA"] = DATA
 
-    # ======================= STEP 3 — RUN A* SEARCH ============================
-    if "solve" not in disabled and check_step(state, "solve"):
-        print("[step] run A* solver")
+        ctx.save_json("order_applied.json", {"DATA_AFTER_ORDER": DATA})
+        return ctx
 
-        save_state_if_enabled(save_state, state, state_path, "last_step", "solve")
 
-        DATA = load_state_value(save_state, state, "DATA", None)
+# ============================================================================
+# Step 3 — Run A* solver
+# ============================================================================
 
-        state_matrix = []
+class SolveStep(PipelineStep):
+    name = "solve"
+
+    def run(self, ctx: PipelineContext):
+        print("[step] SOLVE")
+
+        DATA = ctx.data["DATA"]
+        BRLEN = ctx.data["BRANCH_LEN"]
+
+        # Convert to full rectangular matrix
+        matrix = []
         for row in DATA:
-            # pad to same length
             r = list(row)
-            if len(r) < len(DATA[0]):
-                r += [0] * (len(DATA[0]) - len(r))
-            state_matrix.append(r)
+            if len(r) < BRLEN:
+                r += [0] * (BRLEN - len(r))
+            matrix.append(r)
 
-        ts = TreeState(state_matrix)
+        ts = TreeState(matrix)
         solver = AStarSolver(ts)
         solution = solver.solve()
 
-        solution_path = join(run_dir, "solution.json")
-        with open(solution_path, "w") as fp:
-            json.dump({
-                "steps": solution.steps_amount,
-                "moves": [m.__dict__ for m in solution.Moves],
-                "result_tree": solution.Resultant_tree,
-            }, fp, indent=2)
+        payload = {
+            "steps": solution.steps_amount,
+            "moves": [m.__dict__ for m in solution.Moves],
+            "result_tree": solution.Resultant_tree,
+        }
+        ctx.save_json("solution.json", payload)
 
-        save_state_if_enabled(save_state, state, state_path, "solution", solution_path)
-        save_state_if_enabled(save_state, state, state_path, "last_step", None)
+        ctx.data["solution"] = payload
+        return ctx
 
-    # ======================= STEP 4 — VERIFY RESULT ============================
-    if "verify" not in disabled and check_step(state, "verify"):
-        print("[step] verify final tree")
 
-        save_state_if_enabled(save_state, state, state_path, "last_step", "verify")
+# ============================================================================
+# Step 4 — Verify final state
+# ============================================================================
 
-        solution_path = load_state_value(save_state, state, "solution", None)
-        with open(solution_path, "r") as fp:
-            sol = json.load(fp)
+class VerifyStep(PipelineStep):
+    name = "verify"
 
-        resultant = sol["result_tree"]
+    def run(self, ctx: PipelineContext):
+        print("[step] VERIFY")
 
-        # simple validation: every branch uniform or empty
+        solution = ctx.data["solution"]
+        resultant = solution["result_tree"]
+
         for br in resultant:
             nonzero = [x for x in br if x != 0]
-            if len(nonzero) == 0:
+            if not nonzero:
                 continue
             if any(x != nonzero[0] for x in nonzero):
-                raise RuntimeError("Verification error: branch not uniform")
+                raise RuntimeError("Verification failed: branch not uniform")
 
         print("Verified: OK")
+        return ctx
 
-        save_state_if_enabled(save_state, state, state_path, "last_step", None)
 
-    print("E2E pipeline completed successfully!")
+# ============================================================================
+# Pipeline manager
+# ============================================================================
+
+class E2EPipeline:
+    """
+    Orchestrates any steps:
+        pipeline.run(["parse", "solve"])
+        pipeline.run_all()
+    """
+    def __init__(self, context: PipelineContext):
+        self.ctx = context
+
+        self.steps = {
+            ParseStep.name: ParseStep(),
+            ApplyOrderStep.name: ApplyOrderStep(),
+            SolveStep.name: SolveStep(),
+            VerifyStep.name: VerifyStep(),
+        }
+
+    def run(self, step_list):
+        """Run specific steps in order."""
+        for s in step_list:
+            if s not in self.steps:
+                raise ValueError(f"Unknown step: {s}")
+            self.ctx = self.steps[s].run(self.ctx)
+        return self.ctx
+
+    def run_all(self):
+        """Standard pipeline: parse → apply_order → solve → verify"""
+        return self.run(["parse", "apply_order", "solve", "verify"])
+
+    def validate_only(self):
+        """Only parse + verify (if solution exists)."""
+        return self.run(["parse", "apply_order", "verify"])
+
+
+# ============================================================================
+# Convenient top-level function
+# ============================================================================
+
+def run_e2e(
+    inputs_dir: str,
+    output_dir: str,
+    config: dict,
+    steps: list[str] | None = None
+):
+    input_files = config.get("input_files", [])
+    if not input_files:
+        raise RuntimeError("Config error: 'input_files' list is empty")
+
+    # Перебираем все входные файлы из config.json
+    for fname in input_files:
+        input_path = os.path.join(inputs_dir, fname)
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+
+        # создаём поддиректорию для каждого входного файла
+        test_name = os.path.splitext(fname)[0]
+        test_output_dir = os.path.join(output_dir, test_name)
+        os.makedirs(test_output_dir, exist_ok=True)
+
+        # читаем входной файл (строки)
+        with open(input_path, "r") as fp:
+            content = fp.read()
+
+        # формируем inputs dict: { file_name → content }
+        inputs_map = {fname: content}
+
+        # правим config на конкретный input_file
+        local_config = dict(config)
+        local_config["input_file"] = fname
+
+        # создаём контекст и пайплайн
+        ctx = PipelineContext(inputs_map, test_output_dir, local_config)
+        pipeline = E2EPipeline(ctx)
+
+        # steps берём из config, если не передано параметром
+        step_sequence = steps if steps is not None else config.get("steps", None)
+
+        if step_sequence is None:
+            pipeline.run_all()
+        else:
+            pipeline.run(step_sequence)
+
+        print(f"Completed: {fname} -> {test_output_dir}")
