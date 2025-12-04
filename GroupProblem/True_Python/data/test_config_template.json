@@ -20,12 +20,14 @@
     ],
     "steps": [
         "parse",
+        "branch_integrity",
         "apply_order", 
         "solve",
         "verify"
     ],
     "available_steps": [
         "parse",
+        "branch_integrity",
         "apply_order", 
         "solve",
         "verify"
