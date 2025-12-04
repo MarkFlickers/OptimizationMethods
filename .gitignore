@@ -10,3 +10,4 @@ output.txt
 GroupProblem/True_Python/data/outputs
 GroupProblem/True_Python/src/__pycache__
 GroupProblem/True_Python/tests/__pycache__
+GroupProblem/True_Python/data/test_config.json
