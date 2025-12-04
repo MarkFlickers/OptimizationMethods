@@ -211,7 +211,7 @@ class BranchIntegrity:
                     DATA[i].clear()
             finalDATA, merr = op.movin(DATA, ORDER)
             if merr:
-                print('error: movin ended in error so no Target Function')
+                print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - movin ended in error so no Target Function')
             else:
                 print(f'Target function = {op.countin(finalDATA, ORDER)}')
         else:
