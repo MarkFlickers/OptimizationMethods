@@ -15,6 +15,7 @@ from os import makedirs
 from src import (
     BranchProcessor,
     OrderProcessor,
+    BranchIntegrity,
     TreeState,
     AStarSolver,
     AStarSolverOptimized,
@@ -108,6 +109,30 @@ class ParseStep(PipelineStep):
 
         return ctx
 
+# ============================================================================ 
+# Step 1.5 — Branch integrity check
+# ============================================================================
+
+class BranchIntegrityStep(PipelineStep):
+    name = "branch_integrity"
+
+    def run(self, ctx: PipelineContext):
+        input_file = ctx.config["input_file"]
+        full_path = os.path.join(ctx.output_dir, input_file)
+        integrity = BranchIntegrity(full_path)
+        integrity.run()
+
+        if integrity.err:
+            raise RuntimeError("BranchIntegrity failed, invalid data")
+
+        # Сохраняем результаты в контекст, чтобы можно было при желании использовать
+        ctx.data["BRANCH_INTEGRITY"] = {
+            "branches": integrity.branches,
+            "order": integrity.order,
+            "BRNCHLEN": integrity.BRNCHLEN
+        }
+
+        return ctx
 
 # ============================================================================
 # Step 2 — Apply ORDER section
@@ -241,6 +266,7 @@ class E2EPipeline:
 
         self.steps = {
             ParseStep.name: ParseStep(),
+            BranchIntegrityStep.name: BranchIntegrityStep(), 
             ApplyOrderStep.name: ApplyOrderStep(),
             SolveStep.name: SolveStep(),
             VerifyStep.name: VerifyStep(),
