@@ -21,7 +21,6 @@
     "steps": [
         "parse",
         "branch_integrity",
-        "apply_order", 
         "solve",
         "verify"
     ],
