@@ -3,6 +3,7 @@ from typing import Tuple, List, Optional, Dict, Iterable
 import heapq
 import itertools
 import time
+import math
 
 # Типы
 Bird = int
@@ -32,6 +33,17 @@ class State:
         # преобразуем в tuple of tuples
         branches = tuple(tuple(row) for row in branch_lists)
         return State._create_cached(branches)
+
+    @staticmethod
+    def _compute_unperf_weight(branch_len) -> int:
+        """
+        Compute weight for unordered birds in unperfectness calculation.
+        Heuristic: proportional to branch length.
+        """
+        if branch_len <= 0:
+            return 1
+
+        return max(1, int(math.log2(branch_len+1)*10))
 
     @staticmethod
     def _create_cached(branches: StateT) -> "State":
@@ -71,7 +83,13 @@ class State:
                     break
                 ordered_birds += 1
             unordered_birds = branch_len - empty_positions - ordered_birds
-            unperf += unordered_birds * 26 + empty_positions
+
+            # for b in branches:
+            #     weight_factor = State._compute_unperf_weight(b)
+            #     unperf += unordered_birds * weight_factor + empty_positions
+
+            weight_factor = State._compute_unperf_weight(branch_len)
+            unperf += unordered_birds * weight_factor + empty_positions
 
         return State(branches=branches,
                      tops=tuple(tops),
@@ -196,35 +214,3 @@ class AStarSolverOptimized:
 
         # no solution
         return 0, [], self.start
-
-
-# ----------------------- example / runner (используйте свои входы) -----------------------
-if __name__ == "__main__":
-    start_time = time.time()
-
-    start = [
-        [2, 2, 1, 1, 4, 4, 4, 1],
-        [3, 3, 2, 4, 1, 4, 2, 2],
-        [2, 1, 2, 3, 3, 3, 3, 1],
-        [4, 4, 1, 2, 4, 3, 2, 4],
-        [3, 1, 2, 3, 4, 1, 3, 3],
-        [4, 1, 2, 1, 2, 2, 2, 1],
-        [4, 1, 3, 4, 3, 1, 1, 3],
-        [4, 2, 4, 4, 2, 3, 1, 3],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-
-    s = State.from_lists(start)
-    solver = AStarSolverOptimized(s)
-    steps, moves, result_state = solver.solve()
-
-    for m in moves:
-        print(m)
-    print("Steps:", steps)
-    print("Result state:")
-    for row in result_state.branches:
-        print(row)
-
-    print("Elapsed:", time.time() - start_time)
