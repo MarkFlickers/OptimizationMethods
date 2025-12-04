@@ -71,7 +71,7 @@ class State:
                     break
                 ordered_birds += 1
             unordered_birds = branch_len - empty_positions - ordered_birds
-            unperf += unordered_birds * 10 + empty_positions
+            unperf += unordered_birds * 26 + empty_positions
 
         return State(branches=branches,
                      tops=tuple(tops),
