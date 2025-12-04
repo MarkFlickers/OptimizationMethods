@@ -31,13 +31,15 @@ if __name__ == "__main__":
     output_dir = os.path.join(DATA_ROOT, "outputs")
 
     config_path = args.config
+    print(f"Config path argument: {config_path}")
 
     if config_path is None or not os.path.exists(config_path):
         print(
-            f"\tConfig file not found: {config_path}\n"
+            f"\n\tConfig file not found: {config_path}\n"
+            f"\tCurrent working directory: {os.getcwd()}\n"
             f"\tYou must provide a valid test configuration JSON.\n"
             f"\tUse argument: --config path/to/test_config.json\n"
-            f"\tThe config must be created based on: data/test_config_template.json"
+            f"\tThe config must be created based on: data/test_config_template.json\n"
         )
         sys.exit(0)
 
