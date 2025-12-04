@@ -15,8 +15,15 @@ def parse_args():
     parser.add_argument(
         "--config",
         type=str,
-        default=None,
+        default="GroupProblem/True_Python/data/test_config.json",
         help="Path to config JSON file (default: data/test_config.json)"
+    )
+
+    parser.add_argument(
+        "--data_root",
+        type=str,
+        default="GroupProblem/True_Python/data",
+        help="Root folder for input/output data (default: GroupProblem/True_Python/data)"
     )
 
     return parser.parse_args()
@@ -25,22 +32,28 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    DATA_ROOT = "GroupProblem/True_Python/data"
+    data_root = args.data_root
+    print(f"Data root: {data_root}")
 
-    inputs_dir = os.path.join(DATA_ROOT, "inputs")
-    output_dir = os.path.join(DATA_ROOT, "outputs")
+    inputs_dir = os.path.join(data_root, "inputs")
+    output_dir = os.path.join(data_root, "outputs")
 
     config_path = args.config
-    print(f"Config path argument: {config_path}")
+    print(f"Config path: {config_path}")
 
-    if config_path is None or not os.path.exists(config_path):
-        print(
-            f"\n\tConfig file not found: {config_path}\n"
-            f"\tCurrent working directory: {os.getcwd()}\n"
-            f"\tYou must provide a valid test configuration JSON.\n"
-            f"\tUse argument: --config path/to/test_config.json\n"
-            f"\tThe config must be created based on: data/test_config_template.json\n"
-        )
+    error_found = False
+
+    if not os.path.exists(config_path):
+        print(f"\n\tConfig file not found: {config_path}")
+        print("\tThe config must be created based on: data/test_config_template.json")
+        error_found = True
+
+    if not os.path.exists(data_root):
+        print(f"\tData folder not found: {data_root}")
+        error_found = True
+
+    if error_found:
+        print(f"\tCurrent working directory: {os.getcwd()}\n")
         sys.exit(0)
 
     with open(config_path, "r") as fp:
