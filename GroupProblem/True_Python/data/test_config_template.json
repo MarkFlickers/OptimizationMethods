@@ -17,18 +17,5 @@
         "BIRDS__1.txt",
         "BIRDS__2.txt",
         "BIRDS__3.txt"
-    ],
-    "steps": [
-        "parse",
-        "branch_integrity",
-        "solve",
-        "verify"
-    ],
-    "available_steps": [
-        "parse",
-        "branch_integrity",
-        "apply_order", 
-        "solve",
-        "verify"
     ]
 }
