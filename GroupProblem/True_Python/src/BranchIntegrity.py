@@ -88,12 +88,13 @@ class BranchProcessor:
         self.out.append(o)
         return 0
 
-    def process_branches(self, databeg, dataend):
+    def process_branches(self, databeg, dataend, verbose: bool = True):
         linenum = 1
         err = 0
         l = self.removecomments(self.lines[databeg+1]).rstrip()
         if self.validbranch(l.split(' ')) == 0:
-            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
+            if verbose:
+                print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
             self.BRNCHLEN = len(l.split(' '))
             self.parseline(l)
             for el in self.lines[databeg+2: dataend]:
@@ -102,7 +103,8 @@ class BranchProcessor:
                 err = self.parseline(l)
                 if err != 0:
                     break
-                print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
+                if verbose:
+                    print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch [{linenum:02d}] - ({l}) is valid')
             # Проверка на кратность
             for b in self.bcnt.keys():
                 if self.bcnt[b] > 0 and self.bcnt[b] % self.BRNCHLEN != 0:
@@ -135,24 +137,31 @@ class OrderProcessor:
             print(i+1, ':', *m[i])
         print()
 
-    def movin(self, DATA, order_section):
-        print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - start movin\'')
-        self.print_matrix(DATA)
+    def movin(self, DATA, order_section, verbose: bool = False):
+        if verbose:
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - start movin')
+        if verbose:
+            self.print_matrix(DATA)
         err = 0
         for step in range(len(order_section)):
             f = int(order_section[step][0]) - 1
             t = int(order_section[step][1]) - 1
             b = order_section[step][2]
-            print('step = {}, from = {}, to = {}, bird = {}'.format(step, f, t, b))
+            if verbose:
+                print('step = {}, from = {}, to = {}, bird = {}'.format(step, f, t, b))
             if b == DATA[f][-1] and len(DATA[t]) < self.BRNCHLEN and (len(DATA[t]) == 0 or DATA[t][-1] == b):
                 DATA[t].append(DATA[f].pop())
-                self.print_matrix(DATA)
+                if verbose:
+                    self.print_matrix(DATA)
             else:
-                print('error: step = {}, from = {}, to = {}, alpha = {}'.format(step, f, t, b))
+                if verbose:
+                    print('error: step = {}, from = {}, to = {}, alpha = {}'.format(step, f, t, b))
                 err = 1
-                self.print_matrix(DATA)
+                if verbose:
+                    self.print_matrix(DATA)
                 break
-        print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - end movin\'')
+        if verbose:
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - end movin')
         return DATA, err
 
     def countin(self, DATA, ORDER):
@@ -172,8 +181,9 @@ class BranchIntegrity:
     args
     file: pathlike
     """
-    def __init__(self, filename):
+    def __init__(self, filename, verbose):
         self.filename = filename
+        self.verbose = verbose
         self.lines = []
         self.branches = None
         self.order = None
@@ -192,7 +202,7 @@ class BranchIntegrity:
             self.err = 1
             return
 
-        self.err, self.branches, self.BRNCHLEN, _ = bp.process_branches(databeg, dataend)
+        self.err, self.branches, self.BRNCHLEN, _ = bp.process_branches(databeg, dataend, False)
 
         if self.err:
             print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - movin is pointless, data is bad')
@@ -209,22 +219,10 @@ class BranchIntegrity:
                 DATA[i] = DATA[i].split()
                 if DATA[i][0] == '==':
                     DATA[i].clear()
-            finalDATA, merr = op.movin(DATA, ORDER)
+            finalDATA, merr = op.movin(DATA, ORDER, self.verbose)
             if merr:
                 print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - movin ended in error so no Target Function')
             else:
-                print(f'Target function = {op.countin(finalDATA, ORDER)}')
+                print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Target function = {op.countin(finalDATA, ORDER)}')
         else:
-            print("warning: order_section not found")
-
-# def main():
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('filename', nargs='?', default='input.txt')
-#     args = parser.parse_args()
-#     print("[INFO] filename provided:", args.filename)
-
-#     file = BranchIntegrity(args.filename)
-#     file.run()
-
-# if __name__ == "__main__":
-#     main()
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - WARNING - order_section not found")
