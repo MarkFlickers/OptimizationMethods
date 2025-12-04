@@ -50,8 +50,9 @@ class TreeState:
 
         # If old table provided we skip recreating rename table from old_state;
         # behavior in C++ second ctor: normalization + sort + computeHash (no createBirdsRenameTable)
-        self._normalize_birds()
+        
         if old_birds_rename_table is None:
+            self._normalize_birds()
             self._create_birds_rename_table(state)
         self._sort_branches()
         # hash will be computed lazily
