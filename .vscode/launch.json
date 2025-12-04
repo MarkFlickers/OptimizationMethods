@@ -27,12 +27,11 @@
             ]
         },
         {
-            "name": "Python launch",
+            "name": "Python default launch",
             "type": "debugpy",
             "request": "launch",
             "program": "GroupProblem/True_Python/pyrun.py",
-            "python": "C:/Users/Andrey Chasovskih/AppData/Local/Programs/Python/Python314/python.exe",
-            "args": [],
+            "args": ["--config", "GroupProblem/True_Python/data/test_config.json"],
             "console": "integratedTerminal"
         },
         {
@@ -41,7 +40,7 @@
             "request": "launch",
             "program": "GroupProblem/True_Python/pyrun.py",
             "python": "C:/Users/Andrey Chasovskih/AppData/Local/Programs/Python/Python314/python.exe",
-            "args": [],
+            "args": ["--config", "GroupProblem/True_Python/data/test_config.json"],
             "console": "integratedTerminal"
         }
 
