@@ -59,11 +59,12 @@ class PipelineContext:
       - parsed structures
       - output directory
     """
-    def __init__(self, inputs: dict[str, str], output_dir: str, config: dict):
+    def __init__(self, inputs: dict[str, str], output_dir: str, config: dict, verbose: bool = True):
         self.inputs = inputs              # {"file": "content"}
         self.output_dir = output_dir      # folder for results
         self.config = config              # parsed test_config.json
         self.data = {}                    # intermediate results: DATA, BRLEN, solution, etc.
+        self.verbose = verbose
 
         makedirs(output_dir, exist_ok=True)
 
@@ -119,7 +120,7 @@ class BranchIntegrityStep(PipelineStep):
     def run(self, ctx: PipelineContext):
         input_file = ctx.config["input_file"]
         full_path = os.path.join(ctx.output_dir, input_file)
-        integrity = BranchIntegrity(full_path)
+        integrity = BranchIntegrity(full_path, ctx.verbose)
         integrity.run()
 
         if integrity.err:
@@ -135,59 +136,7 @@ class BranchIntegrityStep(PipelineStep):
         return ctx
 
 # ============================================================================
-# Step 2 — Apply ORDER section
-# ============================================================================
-
-class ApplyOrderStep(PipelineStep):
-    name = "apply_order"
-
-    def run(self, ctx: PipelineContext):
-
-        DATA = ctx.data["DATA"]
-        BRLEN = ctx.data["BRANCH_LEN"]
-
-        input_file = ctx.config["input_file"]
-        lines = ctx.load_input_lines(input_file)
-
-        op = OrderProcessor(lines, BRLEN)
-        order_start, rel_end = op.find_order_section()
-
-        if order_start != -1 and rel_end != -1:
-            order_lines = lines[order_start+1: order_start+rel_end]
-            moves = [l.split() for l in order_lines if l.strip()]
-        else:
-            moves = []
-
-        # Apply moves
-        for i, m in enumerate(moves):
-            src = int(m[0]) - 1
-            dst = int(m[1]) - 1
-            bird_char = m[2]
-            bird_num = ord(bird_char) - ord('A') + 1
-
-            if len(DATA[src]) == 0:
-                raise RuntimeError("ORDER: source empty")
-
-            if DATA[src][-1] != bird_num:
-                raise RuntimeError("ORDER: wrong bird on source")
-
-            if len(DATA[dst]) >= BRLEN:
-                raise RuntimeError("ORDER: destination full")
-
-            if len(DATA[dst]) > 0 and DATA[dst][-1] != bird_num:
-                raise RuntimeError("ORDER: stack mismatch")
-
-            DATA[dst].append(DATA[src].pop())
-
-        ctx.data["DATA"] = DATA
-        ctx.data["STATE"] = State.from_lists(DATA)
-
-        ctx.save_json("order_applied.json", {"DATA_AFTER_ORDER": DATA})
-        return ctx
-
-
-# ============================================================================
-# Step 3 — Run A* solver
+# Step 2 — Run A* solver
 # ============================================================================
 
 
@@ -229,29 +178,6 @@ class SolveStep(PipelineStep):
 
 
 # ============================================================================
-# Step 4 — Verify final state
-# ============================================================================
-
-class VerifyStep(PipelineStep):
-    name = "verify"
-
-    def run(self, ctx: PipelineContext):
-
-        solution = ctx.data["solution"]
-        resultant = solution["result_tree"]
-
-        for br in resultant:
-            nonzero = [x for x in br if x != 0]
-            if not nonzero:
-                continue
-            if any(x != nonzero[0] for x in nonzero):
-                raise RuntimeError("Verification failed: branch not uniform")
-
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Verified: OK")
-        return ctx
-
-
-# ============================================================================
 # Pipeline manager
 # ============================================================================
 
@@ -267,43 +193,55 @@ class E2EPipeline:
         self.steps = {
             ParseStep.name: ParseStep(),
             BranchIntegrityStep.name: BranchIntegrityStep(), 
-            ApplyOrderStep.name: ApplyOrderStep(),
-            SolveStep.name: SolveStep(),
-            VerifyStep.name: VerifyStep(),
+            # ApplyOrderStep.name: ApplyOrderStep(),
+            SolveStep.name: SolveStep()
         }
 
-    def run(self, step_list):
-        """Run specific steps in order, stop on first error."""
-        for s in step_list:
-            if s not in self.steps:
-                raise ValueError(f"Unknown step: {s}")
+    def run_conditional(self):
+        input_file = self.ctx.config["input_file"]
+        lines = self.ctx.load_input_lines(input_file)
 
-            step_obj = self.steps[s]
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} = STEP = {s}")
+        # Проверяем, есть ли ORDER в исходном файле
+        has_order = any(l.strip() and l.strip().upper() == "ORDER" for l in lines)
 
-            t0 = time.perf_counter()
+        if has_order:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - ORDER detected, running BranchIntegrity only")
+            integrity_step = BranchIntegrityStep()
+            self.ctx = integrity_step.run(self.ctx)
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - BranchIntegrity completed, pipeline ends")
+            return self.ctx
 
-            try:
-                self.ctx = step_obj.run(self.ctx)
+        parse_step = ParseStep()
+        self.ctx = parse_step.run(self.ctx)
 
-            except Exception as e:
-                # лог ошибки в файл
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - Step '{s}' failed: {e}")
-                # Останавливаем весь пайплайн
-                raise   # пробрасываем исключение наружу
+        solve_step = SolveStep()
+        self.ctx = solve_step.run(self.ctx)
 
-            t1 = time.perf_counter()
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - [{s} time]: {t1 - t0:.4f} sec")
+        # После решения — проверяем BranchIntegrity на результат
+        # Для этого создаём временный файл с результатом решения
+        solution_file = os.path.join(self.ctx.output_dir, input_file)
+        moves = self.ctx.data["solution"]["moves"]
 
+        # Переписываем текст исходного DATA с ORDER из решения
+        data_text = "\n".join(lines).strip()
+        order_lines = []
+        for mv in moves:
+            s = mv["src_branch"] + 1
+            d = mv["dst_branch"] + 1
+            b = chr(mv["bird"] + ord("A") - 1)
+            order_lines.append(f"{s} {d} {b}")
+
+        full_text = data_text + "\n\nORDER\n" + "\n".join(order_lines) + "\n/"
+        with open(solution_file, "w") as fp:
+            fp.write(full_text)
+
+        # Запускаем BranchIntegrity на выходной файл
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Running BranchIntegrity on solved output")
+        integrity_step = BranchIntegrityStep()
+        self.ctx = integrity_step.run(self.ctx)
+
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - BranchIntegrity after Solve completed")
         return self.ctx
-
-    def run_all(self):
-        """Standard pipeline: parse -> apply_order -> solve -> verify"""
-        return self.run(["parse", "apply_order", "solve", "verify"])
-
-    def validate_only(self):
-        """Only parse + verify (if solution exists)."""
-        return self.run(["parse", "apply_order", "verify"])
 
 
 # ============================================================================
@@ -314,7 +252,8 @@ def run_e2e_optimize(
     inputs_dir: str,
     output_dir: str,
     config: dict,
-    steps: list[str] | None = None
+    verbose: bool,
+    # steps: list[str] | None = None
 ):
     input_files = config.get("input_files", [])
     if not input_files:
@@ -353,17 +292,14 @@ def run_e2e_optimize(
         local_config["input_file"] = fname
 
         # создаём контекст и пайплайн
-        ctx = PipelineContext(inputs_map, test_output_dir, local_config)
+        ctx = PipelineContext(inputs_map, test_output_dir, local_config, verbose)
         pipeline = E2EPipeline(ctx)
 
         # steps берём из config, если не передано параметром
-        step_sequence = steps if steps is not None else config.get("steps", None)
+        # step_sequence = steps if steps is not None else config.get("steps", None)
 
         try:
-            if step_sequence is None:
-                pipeline.run_all()
-            else:
-                pipeline.run(step_sequence)
+            pipeline.run_conditional()
         except RuntimeError:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Pipeline stopped due to error.")
             # просто прекращаем без traceback
