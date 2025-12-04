@@ -247,18 +247,28 @@ class E2EPipeline:
         }
 
     def run(self, step_list):
-        """Run specific steps in order."""
+        """Run specific steps in order, stop on first error."""
         for s in step_list:
             if s not in self.steps:
                 raise ValueError(f"Unknown step: {s}")
+
             step_obj = self.steps[s]
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} = STEP = {s}")
 
             t0 = time.perf_counter()
-            self.ctx = step_obj.run(self.ctx)
-            t1 = time.perf_counter()
 
+            try:
+                self.ctx = step_obj.run(self.ctx)
+
+            except Exception as e:
+                # лог ошибки в файл
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - Step '{s}' failed: {e}")
+                # Останавливаем весь пайплайн
+                raise   # пробрасываем исключение наружу
+
+            t1 = time.perf_counter()
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - [{s} time]: {t1 - t0:.4f} sec")
+
         return self.ctx
 
     def run_all(self):
@@ -323,10 +333,15 @@ def run_e2e_optimize(
         # steps берём из config, если не передано параметром
         step_sequence = steps if steps is not None else config.get("steps", None)
 
-        if step_sequence is None:
-            pipeline.run_all()
-        else:
-            pipeline.run(step_sequence)
+        try:
+            if step_sequence is None:
+                pipeline.run_all()
+            else:
+                pipeline.run(step_sequence)
+        except RuntimeError:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Pipeline stopped due to error.")
+            # просто прекращаем без traceback
+            return
 
         # 1. Берём исходный DATA (как текст)
         data_text = content.strip()

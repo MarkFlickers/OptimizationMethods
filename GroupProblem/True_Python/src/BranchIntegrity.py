@@ -48,7 +48,7 @@ class BranchProcessor:
     def validbranch(self, b):
         lb = len(b)
         if lb == 0 or lb > MAXBRNCHLEN:
-            print(f'error: length of branch is faulty ({lb})')
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - length of branch is faulty ({lb})')
             return 2
         for e in b:
             le = len(e)
@@ -111,7 +111,7 @@ class BranchProcessor:
                     err = 7
                     break
         else:
-            print(f'error: first branch is not valid, will not continue')
+            print(f'{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - first branch is not valid, will not continue')
             err = 9
         return err, self.out, self.BRNCHLEN, self.bcnt
 
