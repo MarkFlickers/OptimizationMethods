@@ -4,7 +4,7 @@ import os
 import argparse
 from os.path import join
 
-from tests import run_e2e_optimize
+from tests import run_e2e
 
 
 def parse_args():
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     with open(config_path, "r") as fp:
         config = json.load(fp)
 
-    run_e2e_optimize(
+    run_e2e(
         inputs_dir=inputs_dir,
         output_dir=output_dir,
         config=config,

@@ -41,7 +41,7 @@
                 "GroupProblem/True_Python/data/test_config.json", 
                 "--data_root", 
                 "GroupProblem/True_Python/data",
-                "--verbose",
+                //"--verbose",
             ],
             "console": "integratedTerminal",
         }

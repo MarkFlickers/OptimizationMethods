@@ -10,9 +10,7 @@ from src import (
     BranchProcessor,
     OrderProcessor,
     BranchIntegrity,
-    TreeState,
     AStarSolver,
-    AStarSolverOptimized,
     State
 )
 
@@ -146,7 +144,7 @@ class SolveStep(PipelineStep):
         start_state = State.from_lists(DATA)
 
         # 3. Запускаем оптимизированный решатель
-        solver = AStarSolverOptimized(start_state)
+        solver = AStarSolver(start_state)
         steps_count, moves, result_state = solver.solve()
 
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - {steps_count} steps")
@@ -254,7 +252,7 @@ class E2EPipeline:
 # Convenient top-level function
 # ============================================================================
 
-def run_e2e_optimize(
+def run_e2e(
     inputs_dir: str,
     output_dir: str,
     config: dict,

@@ -12,16 +12,12 @@ from .BranchIntegrity import OrderProcessor
 from .BranchIntegrity import BranchProcessor
 from .temp import PyVersion
 from .astar import AStarSolver
-from .astar import TreeState
-from .astar_optimize import AStarSolverOptimized
-from .astar_optimize import State
+from .astar import State
 
 __all__ = [
     'BranchIntegrity',
     'AStarSolver',
-    'AStarSolverOptimized',
     'PyVersion',
-    'TreeState',
     'State',
     'OrderProcessor',
     'BranchProcessor'

@@ -117,7 +117,7 @@ class Node:
     parent_move: Optional[Move]
 
 
-class AStarSolverOptimized:
+class AStarSolver:
     MAX_DEPTH = 2000  # можно регулировать
 
     def __init__(self, start: State):
