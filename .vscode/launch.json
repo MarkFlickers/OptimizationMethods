@@ -2,31 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "C:/Users/Vladimir/Desktop/шарага/Мага/MO/OptimizationMethods/GroupProblem/C/main.exe",
-            "args": [],
-            "stopAtEntry": true,
-            "cwd": "C:/Users/Vladimir/Desktop/шарага/Мага/MO/OptimizationMethods/GroupProblem/C",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ]
-        },
-        {
             "name": "Python default launch",
             "type": "debugpy",
             "request": "launch",
@@ -42,6 +17,15 @@
             "python": "C:/Users/Andrey Chasovskih/AppData/Local/Programs/Python/Python314/python.exe",
             "args": ["--config", "GroupProblem/True_Python/data/test_config.json", "--data_root", "GroupProblem/True_Python/data"],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Vova Python launch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "GroupProblem/True_Python/pyrun.py",
+            "python": "C:/Users/Vladimir/AppData/Local/Programs/Python/Python314/python.exe",
+            "args": ["--config", "GroupProblem/True_Python/data/test_config.json", "--data_root", "GroupProblem/True_Python/data"],
+            "console": "integratedTerminal",
         }
 
     ]
