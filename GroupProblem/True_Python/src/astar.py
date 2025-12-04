@@ -88,7 +88,8 @@ class State:
             #     weight_factor = State._compute_unperf_weight(b)
             #     unperf += unordered_birds * weight_factor + empty_positions
 
-            weight_factor = State._compute_unperf_weight(branch_len)
+            #weight_factor = State._compute_unperf_weight(branch_len)
+            weight_factor = 25
             unperf += unordered_birds * weight_factor + empty_positions
 
         return State(branches=branches,
