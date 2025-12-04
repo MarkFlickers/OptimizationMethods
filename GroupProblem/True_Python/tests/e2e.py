@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -----------------------------------------------------------------------------
-# This file was created and refactored with the assistance of ChatGPT (OpenAI).
-# Logic, algorithms and semantics of the original C++ project have been preserved.
-# -----------------------------------------------------------------------------
-
 import json
 import os
 from os.path import join

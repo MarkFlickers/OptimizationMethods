@@ -1,9 +1,3 @@
-
-# -----------------------------------------------------------------------------
-# This file was created and refactored with the assistance of ChatGPT (OpenAI).
-# Logic, algorithms and semantics of the original C++ project have been preserved.
-# -----------------------------------------------------------------------------
-
 import time
 import json
 import sys
