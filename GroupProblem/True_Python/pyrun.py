@@ -26,6 +26,12 @@ def parse_args():
         help="Root folder for input/output data (default: GroupProblem/True_Python/data)"
     )
 
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output for moving checking (default: False)"
+    )
+
     return parser.parse_args()
 
 
@@ -40,6 +46,8 @@ if __name__ == "__main__":
 
     config_path = args.config
     print(f"Config path: {config_path}")
+
+    verbose = args.verbose
 
     error_found = False
 
@@ -62,5 +70,6 @@ if __name__ == "__main__":
     run_e2e_optimize(
         inputs_dir=inputs_dir,
         output_dir=output_dir,
-        config=config
+        config=config,
+        verbose=verbose
     )
