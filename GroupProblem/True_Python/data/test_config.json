@@ -1,0 +1,33 @@
+{
+    "input_files": [
+        "BIRDS_5.txt"
+    ],
+    "available_files": [
+        "BIRDS_3.txt",
+        "BIRDS_4.txt",
+        "BIRDS_5.txt", 
+        "BIRDS_6.txt",
+        "BIRDS_7.txt",
+        "BIRDS_8.txt",
+        "BIRDS_9.txt",
+        "BIRDS_10.txt",
+        "BIRDS_11.txt",
+        "BIRDS_12.txt",
+        "BIRDS_13.txt",
+        "BIRDS__1.txt",
+        "BIRDS__2.txt",
+        "BIRDS__3.txt"
+    ],
+    "steps": [
+        "parse",
+        "apply_order", 
+        "solve",
+        "verify"
+    ],
+    "available_steps": [
+        "parse",
+        "apply_order", 
+        "solve",
+        "verify"
+    ]
+}
