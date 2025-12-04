@@ -183,17 +183,14 @@ class SolveStep(PipelineStep):
 
 class E2EPipeline:
     """
-    Orchestrates any steps:
-        pipeline.run(["parse", "solve"])
-        pipeline.run_all()
+    Orchestrates any steps conditionally based on input.
     """
     def __init__(self, context: PipelineContext):
         self.ctx = context
 
         self.steps = {
             ParseStep.name: ParseStep(),
-            BranchIntegrityStep.name: BranchIntegrityStep(), 
-            # ApplyOrderStep.name: ApplyOrderStep(),
+            BranchIntegrityStep.name: BranchIntegrityStep(),
             SolveStep.name: SolveStep()
         }
 
@@ -204,43 +201,58 @@ class E2EPipeline:
         # Проверяем, есть ли ORDER в исходном файле
         has_order = any(l.strip() and l.strip().upper() == "ORDER" for l in lines)
 
+        # Список шагов, которые будут выполняться
+        step_sequence = []
+
         if has_order:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - ORDER detected, running BranchIntegrity only")
-            integrity_step = BranchIntegrityStep()
-            self.ctx = integrity_step.run(self.ctx)
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - BranchIntegrity completed, pipeline ends")
-            return self.ctx
+            step_sequence.append("branch_integrity")
+        else:
+            step_sequence.extend(["parse", "solve"])
 
-        parse_step = ParseStep()
-        self.ctx = parse_step.run(self.ctx)
+        for step_name in step_sequence:
+            if step_name not in self.steps:
+                raise ValueError(f"Unknown step: {step_name}")
+            step_obj = self.steps[step_name]
 
-        solve_step = SolveStep()
-        self.ctx = solve_step.run(self.ctx)
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} = STEP = {step_name}")
+            t0 = time.perf_counter()
 
-        # После решения — проверяем BranchIntegrity на результат
-        # Для этого создаём временный файл с результатом решения
-        solution_file = os.path.join(self.ctx.output_dir, input_file)
-        moves = self.ctx.data["solution"]["moves"]
+            try:
+                self.ctx = step_obj.run(self.ctx)
+            except Exception as e:
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - Step '{step_name}' failed: {e}")
+                raise
 
-        # Переписываем текст исходного DATA с ORDER из решения
-        data_text = "\n".join(lines).strip()
-        order_lines = []
-        for mv in moves:
-            s = mv["src_branch"] + 1
-            d = mv["dst_branch"] + 1
-            b = chr(mv["bird"] + ord("A") - 1)
-            order_lines.append(f"{s} {d} {b}")
+            t1 = time.perf_counter()
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - [{step_name} time]: {t1 - t0:.4f} sec")
 
-        full_text = data_text + "\n\nORDER\n" + "\n".join(order_lines) + "\n/"
-        with open(solution_file, "w") as fp:
-            fp.write(full_text)
+        # После решения — проверяем BranchIntegrity на результат, если выполнялся solve
+        if "solve" in step_sequence:
+            solution_file = os.path.join(self.ctx.output_dir, input_file)
+            moves = self.ctx.data["solution"]["moves"]
 
-        # Запускаем BranchIntegrity на выходной файл
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - Running BranchIntegrity on solved output")
-        integrity_step = BranchIntegrityStep()
-        self.ctx = integrity_step.run(self.ctx)
+            data_text = "\n".join(lines).strip()
+            order_lines = []
+            for mv in moves:
+                s = mv["src_branch"] + 1
+                d = mv["dst_branch"] + 1
+                b = chr(mv["bird"] + ord("A") - 1)
+                order_lines.append(f"{s} {d} {b}")
 
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - BranchIntegrity after Solve completed")
+            full_text = data_text + "\n\nORDER\n" + "\n".join(order_lines) + "\n/"
+            with open(solution_file, "w") as fp:
+                fp.write(full_text)
+
+            # Запускаем BranchIntegrity на выходной файл
+            step_name = "branch_integrity"
+            step_obj = self.steps[step_name]
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} = STEP = {step_name} (after solve)")
+            t0 = time.perf_counter()
+            self.ctx = step_obj.run(self.ctx)
+            t1 = time.perf_counter()
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - [{step_name} time]: {t1 - t0:.4f} sec")
+
         return self.ctx
 
 
