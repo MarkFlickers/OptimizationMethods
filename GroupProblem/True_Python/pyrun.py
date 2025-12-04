@@ -5,7 +5,7 @@ from os.path import join
 from tests import run_e2e_optimize
 
 if __name__ == "__main__":
-    DATA_ROOT = "C:/Users/Andrey Chasovskih/Desktop/ptichki/OptimizationMethods/GroupProblem/True_Python/data"
+    DATA_ROOT = "GroupProblem/True_Python/data"
 
     inputs_dir = os.path.join(DATA_ROOT, "inputs")
     output_dir = os.path.join(DATA_ROOT, "outputs")
