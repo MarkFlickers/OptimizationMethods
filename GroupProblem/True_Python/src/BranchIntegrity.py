@@ -137,14 +137,14 @@ class OrderProcessor:
             t = int(order_section[step][1]) - 1
             b = order_section[step][2]
             if verbose:
-                print('step = {}, from = {}, to = {}, bird = {}'.format(step, f, t, b))
+                print('step = {}, from = {}, to = {}, bird = {}'.format(step + 1, f + 1, t + 1, b))
             if b == DATA[f][-1] and len(DATA[t]) < self.BRNCHLEN and (len(DATA[t]) == 0 or DATA[t][-1] == b):
                 DATA[t].append(DATA[f].pop())
                 if verbose:
                     self.print_matrix(DATA)
             else:
                 if verbose:
-                    print('error: step = {}, from = {}, to = {}, alpha = {}'.format(step, f, t, b))
+                    print('error: step = {}, from = {}, to = {}, alpha = {}'.format(step + 1, f + 1, t + 1, b))
                 err = 1
                 if verbose:
                     self.print_matrix(DATA)
