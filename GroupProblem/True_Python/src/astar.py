@@ -72,8 +72,7 @@ class State:
 
             # ---------- 3. Неупорядоченные ----------
             unordered = (limit - ordered)
-            unorder_penalty = (unordered + 1) * unordered
-            #unorder_penalty = 26
+            unorder_penalty = branch_len
             # ---------- 4. Увеличиваем unperfectness ----------
             result += unordered * unorder_penalty + empty_positions
 
