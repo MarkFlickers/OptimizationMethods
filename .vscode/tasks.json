@@ -6,15 +6,19 @@
             "group": "test",
             "type": "shell",
             "dependsOrder": "sequence",
-            "command": "python",
+            "command": "C:/Users/Vladimir/AppData/Local/Programs/Python/Python314/python.exe",
             "args": [
                 "-m",
                 "cProfile",
                 "-o",
-                "${relativeFile}.cprof",
+                "GroupProblem/True_Python/pyrun.py.cprof",
                 "-s",
                 "cumulative",
-                "${relativeFile}"
+                "GroupProblem/True_Python/pyrun.py",
+                "--config", 
+                "GroupProblem/True_Python/data/test_config.json", 
+                "--data_root", 
+                "GroupProblem/True_Python/data",
             ],
             "options": {
                 "statusbar": {
@@ -33,7 +37,7 @@
             "dependsOrder": "sequence",
             "command": "snakeviz",
             "args": [
-                "${relativeFile}.cprof"
+                "GroupProblem/True_Python/pyrun.py.cprof"
             ],
             "options": {
                 "statusbar": {
