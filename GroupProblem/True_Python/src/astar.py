@@ -5,6 +5,10 @@ import itertools
 import time
 import math
 
+from collections import defaultdict
+from typing import List, Tuple
+import numpy as np
+
 # Типы
 Bird = int
 BranchT = Tuple[Bird, ...]
@@ -44,6 +48,36 @@ class State:
             return 1
 
         return max(1, int(math.log2(branch_len+1)*10))
+    
+    @staticmethod
+    def _calculate_heuristics(branches, tops):
+        result = 0
+        branch_len = len(branches[0])
+        for i, b in enumerate(branches):
+            fb = b[0]
+            top = tops[i]
+
+            if top == -1:
+                # пустая ветка
+                continue
+
+            # ---------- 1. Пустые позиции в конце ----------
+            empty_positions = (branch_len - 1) - top
+
+            # ---------- 2. Упорядоченные птицы ----------
+            limit = top + 1
+            ordered = 0
+            while ordered < limit and b[ordered] == fb:
+                ordered += 1
+
+            # ---------- 3. Неупорядоченные ----------
+            unordered = (limit - ordered)
+            unorder_penalty = (unordered + 1) * unordered
+            #unorder_penalty = 26
+            # ---------- 4. Увеличиваем unperfectness ----------
+            result += unordered * unorder_penalty + empty_positions
+
+        return result
 
     @staticmethod
     def _create_cached(branches: StateT) -> "State":
@@ -79,23 +113,7 @@ class State:
                 # пустая ветка
                 continue
 
-            # ---------- 3. Пустые позиции в конце ----------
-            empty_positions = (branch_len - 1) - top
-
-            # ---------- 4. Упорядоченные птицы ----------
-            if fb == 0:
-                ordered = 0
-            else:
-                limit = branch_len - empty_positions
-                ordered = 0
-                while ordered < limit and b[ordered] == fb:
-                    ordered += 1
-
-            # ---------- 5. Неупорядоченные ----------
-            unordered = (branch_len - empty_positions - ordered)
-
-            # ---------- 6. Увеличиваем unperfectness ----------
-            unperf += unordered * 25 + empty_positions
+        unperf = State._calculate_heuristics(branches, tops)
 
         return State(
             branches=branches,
