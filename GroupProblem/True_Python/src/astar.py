@@ -44,28 +44,14 @@ class State:
             return 1
 
         return max(1, int(math.log2(branch_len+1)*10))
-
+    
     @staticmethod
-    def _create_cached(branches: StateT) -> "State":
-        tops = []
-        firsts = []
-        unperf = 0
-        branch_len = len(branches[0]) if branches else 0
-
+    def _calculate_heuristics(branches):
+        result = 0
+        branch_len = len(branches[0])
         for b in branches:
-            # first bird
-            fb = b[0] if b and b[0] != 0 else 0
-            firsts.append(fb)
-            # find top (last non-zero index)
-            top = -1
-            for i in range(branch_len - 1, -1, -1):
-                if b[i] != 0:
-                    top = i
-                    break
-            tops.append(top)
-
             # calculate unperfectness as in original (unordered birds*10 + empty positions)
-            if top == -1:
+            if b[0] == 0:
                 # fully empty branch
                 continue
             first_bird = b[0]
@@ -90,7 +76,30 @@ class State:
 
             #weight_factor = State._compute_unperf_weight(branch_len)
             weight_factor = 25
-            unperf += unordered_birds * weight_factor + empty_positions
+            result += unordered_birds * weight_factor + empty_positions
+
+        return result
+
+    @staticmethod
+    def _create_cached(branches: StateT) -> "State":
+        tops = []
+        firsts = []
+        unperf = 0
+        branch_len = len(branches[0]) if branches else 0
+
+        for b in branches:
+            # first bird
+            fb = b[0] if b and b[0] != 0 else 0
+            firsts.append(fb)
+            # find top (last non-zero index)
+            top = -1
+            for i in range(branch_len - 1, -1, -1):
+                if b[i] != 0:
+                    top = i
+                    break
+            tops.append(top)
+
+        unperf = State._calculate_heuristics(branches)
 
         return State(branches=branches,
                      tops=tuple(tops),
