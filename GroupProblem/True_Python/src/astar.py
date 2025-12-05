@@ -44,67 +44,66 @@ class State:
             return 1
 
         return max(1, int(math.log2(branch_len+1)*10))
-    
-    @staticmethod
-    def _calculate_heuristics(branches):
-        result = 0
-        branch_len = len(branches[0])
-        for b in branches:
-            # calculate unperfectness as in original (unordered birds*10 + empty positions)
-            if b[0] == 0:
-                # fully empty branch
-                continue
-            first_bird = b[0]
-            # count empty positions from end
-            empty_positions = 0
-            j = branch_len - 1
-            while j >= 0 and b[j] == 0:
-                empty_positions += 1
-                j -= 1
-            # count ordered birds from start (matching first_bird)
-            ordered_birds = 0
-            limit = branch_len - empty_positions
-            for j in range(limit):
-                if b[j] != first_bird:
-                    break
-                ordered_birds += 1
-            unordered_birds = branch_len - empty_positions - ordered_birds
-
-            # for b in branches:
-            #     weight_factor = State._compute_unperf_weight(b)
-            #     unperf += unordered_birds * weight_factor + empty_positions
-
-            #weight_factor = State._compute_unperf_weight(branch_len)
-            weight_factor = 25
-            result += unordered_birds * weight_factor + empty_positions
-
-        return result
 
     @staticmethod
     def _create_cached(branches: StateT) -> "State":
-        tops = []
-        firsts = []
+        if not branches:
+            return State(branches, (), (), 0)
+
+        bcount = len(branches)
+        branch_len = len(branches[0])
+
+        tops = [0] * bcount
+        firsts = [0] * bcount
         unperf = 0
-        branch_len = len(branches[0]) if branches else 0
 
-        for b in branches:
-            # first bird
-            fb = b[0] if b and b[0] != 0 else 0
-            firsts.append(fb)
-            # find top (last non-zero index)
+        for i, b in enumerate(branches):
+
+            # ---------- 1. Первый элемент ----------
+            fb = b[0]
+            if fb == 0:
+                firsts[i] = 0
+            else:
+                firsts[i] = fb
+
+            # ---------- 2. Находим top ----------
+            # самый быстрый способ: искать последний ненулевой с конца
             top = -1
-            for i in range(branch_len - 1, -1, -1):
-                if b[i] != 0:
-                    top = i
+            for k in range(branch_len - 1, -1, -1):
+                if b[k] != 0:
+                    top = k
                     break
-            tops.append(top)
+            tops[i] = top
 
-        unperf = State._calculate_heuristics(branches)
+            if top == -1:
+                # пустая ветка
+                continue
 
-        return State(branches=branches,
-                     tops=tuple(tops),
-                     first_birds=tuple(firsts),
-                     unperfectness=unperf)
+            # ---------- 3. Пустые позиции в конце ----------
+            empty_positions = (branch_len - 1) - top
+
+            # ---------- 4. Упорядоченные птицы ----------
+            if fb == 0:
+                ordered = 0
+            else:
+                limit = branch_len - empty_positions
+                ordered = 0
+                while ordered < limit and b[ordered] == fb:
+                    ordered += 1
+
+            # ---------- 5. Неупорядоченные ----------
+            unordered = (branch_len - empty_positions - ordered)
+
+            # ---------- 6. Увеличиваем unperfectness ----------
+            unperf += unordered * 25 + empty_positions
+
+        return State(
+            branches=branches,
+            tops=tuple(tops),
+            first_birds=tuple(firsts),
+            unperfectness=unperf
+        )
+
 
     def apply_move(self, move: Move) -> "State":
         # собираем новые ветви, меняя только две ветви — источник и приемник
