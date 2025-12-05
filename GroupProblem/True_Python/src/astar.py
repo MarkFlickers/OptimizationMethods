@@ -142,12 +142,8 @@ class AStarSolver:
                     continue
                 # find first empty in dst (from left)
                 dst_branch = branches[dst]
-                dst_pos = -1
-                for j in range(branch_len):
-                    if dst_branch[j] == 0:
-                        dst_pos = j
-                        break
-                if dst_pos == -1:
+                dst_pos = state.tops[dst] + 1
+                if dst_pos >= branch_len:
                     continue
                 # rule: if dst_pos > 0 and cell before != bird_to_move -> can't
                 if dst_pos > 0 and dst_branch[dst_pos - 1] != bird_to_move:
