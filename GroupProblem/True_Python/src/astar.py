@@ -23,9 +23,17 @@ class State:
     tops: Tuple[int, ...]
     first_birds: Tuple[int, ...]
     unperfectness: int
+    _cached_hash: int = field(default=0, compare=False, hash=False)
     
     def __hash__(self):
+        if self._cached_hash != 0:
+            return self._cached_hash
         return hash(self.branches)
+    
+    def __eq__(self, other):
+        if not isinstance(other, State):
+            return False
+        return self.branches == other.branches
     
     @staticmethod
     def from_lists(branch_lists: List[List[int]]) -> "State":
@@ -61,7 +69,8 @@ class State:
     @staticmethod
     def _create_cached(branches: StateT) -> "State":
         if not branches:
-            return State(branches, (), (), 0)
+            return State(branches, (), (), 0, hash(branches))
+        
 
         bcount = len(branches)
         branch_len = len(branches[0])
@@ -82,18 +91,25 @@ class State:
 
         unperf = State._calculate_heuristics(branches, tops)
 
+        branches_hash = hash(branches)
+
         return State(
             branches=branches,
             tops=tuple(tops),
             first_birds=tuple(firsts),
-            unperfectness=unperf
+            unperfectness=unperf,
+            _cached_hash=branches_hash
         )
 
     def apply_move(self, move: Move) -> "State":
         b_list = [list(b) for b in self.branches]
-        bird = b_list[move.src_branch][move.src_pos]
-        b_list[move.src_branch][move.src_pos] = 0
-        b_list[move.dst_branch][move.dst_pos] = bird
+        src_branch = b_list[move.src_branch]
+        dst_branch = b_list[move.dst_branch]
+        
+        bird = src_branch[move.src_pos]
+        src_branch[move.src_pos] = 0
+        dst_branch[move.dst_pos] = bird
+        
         new_branches = tuple(tuple(row) for row in b_list)
         return State._create_cached(new_branches)
 
@@ -174,24 +190,20 @@ class AStarSolver:
                 moves = self.reconstruct_solution(came_from, cur_state)
                 return len(moves), moves, cur_state
             
-            # Если уже посещали этот узел - пропускаем
             if cur_state in closed_set:
                 continue
 
             closed_set.add(cur_state)
             cur_g = g_scores[cur_state]
 
-            # Расширяем узел
             for move in self.find_possible_moves(cur_state):
                 new_state = cur_state.apply_move(move)
                 
-                # Не исследуем закрытые узлы
                 if new_state in closed_set:
                     continue
                     
                 tentative_g = cur_g + 1
 
-                # A* условие обновления
                 current_g = g_scores.get(new_state, 10**12)
                 if tentative_g < current_g:
                     g_scores[new_state] = tentative_g
