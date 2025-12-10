@@ -5,6 +5,7 @@ import itertools
 import time
 import math
 
+
 Bird = int
 BranchT = Tuple[Bird, ...]
 StateT = Tuple[BranchT, ...]
@@ -16,6 +17,7 @@ class Move:
     dst_branch: int
     dst_pos: int
     bird: Bird
+
 
 @dataclass(frozen=True)
 class State:
@@ -71,17 +73,13 @@ class State:
         if not branches:
             return State(branches, (), (), 0, hash(branches))
         
-
         bcount = len(branches)
         branch_len = len(branches[0])
-
         tops = [0] * bcount
         firsts = [0] * bcount
-
         for i, b in enumerate(branches):
             fb = b[0]
             firsts[i] = fb if fb != 0 else 0
-
             top = -1
             for k in range(branch_len - 1, -1, -1):
                 if b[k] != 0:
@@ -90,7 +88,6 @@ class State:
             tops[i] = top
 
         unperf = State._calculate_heuristics(branches, tops)
-
         branches_hash = hash(branches)
 
         return State(
@@ -113,11 +110,13 @@ class State:
         new_branches = tuple(tuple(row) for row in b_list)
         return State._create_cached(new_branches)
 
+
 @dataclass
 class Node:
     state: State
     g: int
     f: int
+
 
 class AStarSolver:
     def __init__(self, start: State):
@@ -127,7 +126,6 @@ class AStarSolver:
     def find_possible_moves(self, state: State) -> List[Move]:
         moves: List[Move] = []
         empty_branch_moves: List[Move] = []
-        
         branches = state.branches
         bcount = len(branches)
         branch_len = len(branches[0]) if bcount > 0 else 0
@@ -172,21 +170,50 @@ class AStarSolver:
         moves.reverse()
         return moves
 
-    def solve(self) -> tuple:
+    def solve(self, time_limit: float = 20.0) -> tuple:
         open_heap: List = []
         g_scores: Dict = {}
         came_from: Dict = {}
         closed_set: set = set()
-
+        
+        # Track best solution found
+        best_solution: Optional[List[Move]] = None
+        best_state: Optional[State] = self.start
+        best_unperfectness: float = self.start.unperfectness
+        best_g: int = 0
+        
+        # Start timer
+        start_time = time.time()
+        explored_count = 0
+        
         g_scores[self.start] = 0
         came_from[self.start] = (None, None)
         start_f = self.start.unperfectness
         heapq.heappush(open_heap, (start_f, next(self.counter), self.start))
+        
+        # Update best if start state is better
+        if self.start.unperfectness < best_unperfectness:
+            best_unperfectness = self.start.unperfectness
+            best_g = 0
+            best_state = self.start
+            best_solution = []
+        
+        iteration_count = 0
+        CHECK_TIME_INTERVAL = 100  # Check time every N iterations
 
         while open_heap:
+            # Periodically check elapsed time to avoid overhead
+            iteration_count += 1
+            if iteration_count % CHECK_TIME_INTERVAL == 0:
+                elapsed = time.time() - start_time
+                if elapsed >= time_limit:
+                    break
+            
             _, _, cur_state = heapq.heappop(open_heap)
             
+            # Found goal state
             if cur_state.unperfectness == 0:
+                cur_g = g_scores[cur_state]
                 moves = self.reconstruct_solution(came_from, cur_state)
                 return len(moves), moves, cur_state
             
@@ -194,7 +221,20 @@ class AStarSolver:
                 continue
 
             closed_set.add(cur_state)
+            explored_count += 1
             cur_g = g_scores[cur_state]
+            
+            # Update best solution if this state is better
+            # Better = lower unperfectness, or same unperfectness but lower g_score
+            is_better = (
+                cur_state.unperfectness < best_unperfectness or
+                (cur_state.unperfectness == best_unperfectness and cur_g < best_g)
+            )
+            
+            if is_better:
+                best_unperfectness = cur_state.unperfectness
+                best_g = cur_g
+                best_state = cur_state
 
             for move in self.find_possible_moves(cur_state):
                 new_state = cur_state.apply_move(move)
@@ -211,4 +251,8 @@ class AStarSolver:
                     new_f = tentative_g + new_state.unperfectness
                     heapq.heappush(open_heap, (new_f, next(self.counter), new_state))
 
-        return 0, [], self.start
+        # Time limit reached - return best solution found
+        best_solution = self.reconstruct_solution(came_from, best_state)
+        num_moves = len(best_solution) if best_solution else 0
+
+        return num_moves, best_solution or [], best_state or self.start
