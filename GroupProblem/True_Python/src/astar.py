@@ -34,11 +34,6 @@ class State:
 
     @staticmethod
     def _calculate_heuristics(branches, tops):
-        """
-        ОПТИМИЗАЦИЯ 2: Улучшенная эвристика
-        - Больше штраф за пустые позиции
-        - Больше штраф за неупорядоченные птицы
-        """
         result = 0
         branch_len = len(branches[0])
         
