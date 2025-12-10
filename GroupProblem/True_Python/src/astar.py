@@ -192,7 +192,8 @@ class AStarSolver:
                 tentative_g = cur_g + 1
 
                 # A* условие обновления
-                if tentative_g < g_scores.get(new_state, 10**12):
+                current_g = g_scores.get(new_state, 10**12)
+                if tentative_g < current_g:
                     g_scores[new_state] = tentative_g
                     came_from[new_state] = (cur_state, move)
                     new_f = tentative_g + new_state.unperfectness
