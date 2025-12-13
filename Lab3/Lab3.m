@@ -71,10 +71,10 @@ fprintf('Глобальный минимум f_min = %.6f в точке (%.6f, %
 
 % Параметры алгоритмов для функции 2 (другие параметры)
 algorithm_params_func2 = struct();
-algorithm_params_func2.pattern = struct('initial_step', 30, 'reduction_factor', 0.85, 'nmax', 1000, 'target_precision', 0.00001);
+algorithm_params_func2.pattern = struct('initial_step', 30, 'reduction_factor', 0.5, 'nmax', 1000, 'target_precision', 0.0001);
 algorithm_params_func2.random = struct('nmax', 1000);
-algorithm_params_func2.annealing = struct('nmax', 1000, 'alpha', 0.99, 'T0', 2.0);
-algorithm_params_func2.genetic = struct('population_size', 20, 'num_generations', 50, 'crossover_rate', 0.85, 'mutation_rate', 0.6, 'selection_method', 'tournament');
+algorithm_params_func2.annealing = struct('nmax', 1000, 'alpha', 0.99, 'T0', 1.75);  %0.99/0.995
+algorithm_params_func2.genetic = struct('population_size', 30, 'num_generations', 37, 'crossover_rate', 0.9, 'mutation_rate', 0.9, 'selection_method', 'tournament');
 
 % Запуск многократного тестирования для функции 2
 argument_precision = 0;
