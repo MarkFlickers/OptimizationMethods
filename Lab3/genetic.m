@@ -1,4 +1,4 @@
-function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size, num_generations, crossover_rate, mutation_rate, selection_method)
+function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size, num_generations, crossover_rate, mutation_rate, selection_method, nmax)
     single_dimension_len = sqrt(length(arg));
     min_index = 1;
     max_index = single_dimension_len;
@@ -12,6 +12,7 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
     % Оценка начальной приспособленности
     fitness = evaluate_fitness(population, f_vals, get_composite_index);
     calculations = calculations + population_size;
+
     
     % Главный цикл по поколениям
     for gen = 1:num_generations
@@ -27,8 +28,12 @@ function [min_arg, min_val, calculations] = genetic(arg, f_vals, population_size
         
         % 4. Селекция
         [population, fitness] = selection(population, fitness, offspring, offspring_fitness, selection_method);
+        
+        if calculations > nmax
+            break;
+        end
     end
-    
+
     % Нахождение лучшей особи
     [min_val, best_idx] = min(fitness);
     best_individual = population(best_idx, :);

@@ -1,138 +1,122 @@
-%% ==================== ФУНКЦИЯ ДЛЯ ЗАПУСКА МНОГОКРАТНЫХ ТЕСТОВ ====================
 function run_multiple_tests(func_name, arg, f_vals, global_min_val, global_min_arg, argument_precision, N, algorithm_params)
-    % N - количество запусков каждого алгоритма
+    % N - максимальное значение nmax
     % algorithm_params - структура с параметрами для каждого алгоритма
     
     single_dimension_len = sqrt(length(arg));
     
     % Подготовка данных для статистики
-    algorithms = {'Pattern Search', 'Random Search', 'Simulated Annealing', 'Genetic Algorithm'};
-    n_algorithms = length(algorithms);
+    algorithms   = {'Pattern Search', 'Random Search', 'Simulated Annealing', 'Genetic Algorithm'};
+    n_algorithms = numel(algorithms);
+    
+    % ---------------- НАСТРОЙКА СЕТКИ ПО nmax ----------------
+    step  = 10;                 % при необходимости замените на нужный шаг
+    nmax_values = 10:step:N;   % именно здесь nmax = 10:step:N
+    K = numel(nmax_values);    % количество разных значений nmax
     
     % Массивы для хранения результатов
-    success_counts = zeros(n_algorithms, N);
-    success_rates = zeros(n_algorithms, N);
-    avg_calculations = zeros(n_algorithms, 1);
+    success_rates   = zeros(n_algorithms, K);  % процент успеха для каждого nmax
+    avg_calculations = zeros(n_algorithms, K); % среднее число вычислений для каждого nmax
     
-    % Для детерминированных алгоритмов (Pattern Search) будем использовать случайные начальные точки
     rng('shuffle'); % Инициализация генератора случайных чисел
     
     fprintf('\n=== Тестирование на функции: %s ===\n', func_name);
-    fprintf('Количество запусков каждого алгоритма: %d\n', N);
+    fprintf('Число прогонов на каждое значение nmax: 100\n');
+    fprintf('Диапазон nmax: [%d : %d : %d]\n', 10, step, N);
     fprintf('Глобальный минимум: %.6f\n', global_min_val);
     
-    % Запуск каждого алгоритма N раз
     for alg_idx = 1:n_algorithms
         fprintf('\nАлгоритм: %s\n', algorithms{alg_idx});
         
-        total_calculations = 0;
-        
-        for run_idx = 1:N
-            % Выбор алгоритма
-            switch alg_idx
-                case 1 % Pattern Search
-                    % Случайная начальная точка
-                    initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
-                    [min_arg, min_val, calc] = pattern_search(arg, f_vals, initial_point, ...
-                        algorithm_params.pattern.initial_step, ...
-                        algorithm_params.pattern.reduction_factor, ...
-                        algorithm_params.pattern.nmax, ...
-                        algorithm_params.pattern.target_precision);
-                    
-                case 2 % Random Search
-                    [min_arg, min_val, calc] = random_search(arg, f_vals, algorithm_params.random.nmax);
-                    
-                case 3 % Simulated Annealing
-                    % Случайная начальная точка
-                    initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
-                    [min_arg, min_val, calc] = annealing(arg, f_vals, initial_point, ...
-                        algorithm_params.annealing.alpha, algorithm_params.annealing.T0, algorithm_params.annealing.nmax);
-                    
-                case 4 % Genetic Algorithm
-                    [min_arg, min_val, calc] = genetic(arg, f_vals, ...
-                        algorithm_params.genetic.population_size, ...
-                        algorithm_params.genetic.num_generations, ...
-                        algorithm_params.genetic.crossover_rate, ...
-                        algorithm_params.genetic.mutation_rate, ...
-                        algorithm_params.genetic.selection_method);
+        for k = 1:K
+            nmax = nmax_values(k);
+            
+            success_count   = 0;  % число успешных попыток при данном nmax
+            total_calc_for_nmax = 0;
+            
+            % ------------ 100 запусков для фиксированного nmax ------------
+            for run_idx = 1:100
+                switch alg_idx
+                    case 1 % Pattern Search
+                        initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
+                        [min_arg, min_val, calc] = pattern_search( ...
+                            arg, f_vals, initial_point, ...
+                            algorithm_params.pattern.initial_step, ...
+                            algorithm_params.pattern.reduction_factor, ...
+                            nmax, ...
+                            algorithm_params.pattern.target_precision);
+                        
+                    case 2 % Random Search
+                        [min_arg, min_val, calc] = random_search(arg, f_vals, nmax);
+                        
+                    case 3 % Simulated Annealing
+                        initial_point = [randi([1, single_dimension_len]), randi([1, single_dimension_len])];
+                        [min_arg, min_val, calc] = annealing( ...
+                            arg, f_vals, initial_point, ...
+                            algorithm_params.annealing.alpha, ...
+                            algorithm_params.annealing.T0, ...
+                            nmax);
+                        
+                    case 4 % Genetic Algorithm
+                        [min_arg, min_val, calc] = genetic( ...
+                            arg, f_vals, ...
+                            algorithm_params.genetic.population_size, ...
+                            algorithm_params.genetic.num_generations, ...
+                            algorithm_params.genetic.crossover_rate, ...
+                            algorithm_params.genetic.mutation_rate, ...
+                            algorithm_params.genetic.selection_method, ...
+                            nmax);
+                end
+                
+                total_calc_for_nmax = total_calc_for_nmax + calc;
+                
+                % Условие успешности по аргументу
+                if norm(global_min_arg - min_arg) <= argument_precision
+                    success_count = success_count + 1;
+                end
             end
             
-            total_calculations = total_calculations + calc;
+            % Доля успешных запусков (из 100) для данного nmax
+            success_rates(alg_idx, k)   = success_count / 100;
+            avg_calculations(alg_idx, k) = total_calc_for_nmax / 100;
             
-            % Проверка, найден ли глобальный минимум
-            %if abs(min_val - global_min_val) == 0
-            %    success_counts(alg_idx, run_idx) = 1;
-            %end
-
-            if norm(global_min_arg - min_arg) <= argument_precision
-               success_counts(alg_idx, run_idx) = 1;
-            end
-
-            % Вычисление текущей доли успешных запусков
-            if run_idx == 1
-                success_rates(alg_idx, run_idx) = success_counts(alg_idx, run_idx);
-            else
-                success_rates(alg_idx, run_idx) = sum(success_counts(alg_idx, 1:run_idx)) / run_idx;
-            end
-            
-            % Прогресс
-            if mod(run_idx, max(1, floor(N/10))) == 0
-                fprintf('  Запуск %d/%d: успешность = %.2f%%\n', ...
-                    run_idx, N, 100 * success_rates(alg_idx, run_idx));
-            end
+            fprintf('nmax = %4d: успех = %.2f%%, среднее вычислений = %.1f\n', ...
+                nmax, 100*success_rates(alg_idx, k), avg_calculations(alg_idx, k));
         end
-        
-        avg_calculations(alg_idx) = total_calculations / N;
-        
-        fprintf('Итоговая успешность: %.2f%%\n', 100 * success_rates(alg_idx, end));
-        fprintf('Среднее число вычислений функции: %.1f\n', avg_calculations(alg_idx));
     end
     
-    % Построение графика
+    % ---------------- ПОСТРОЕНИЕ ГРАФИКОВ ----------------
     figure('Position', [100, 100, 1200, 600]);
-    
-    % График 1: Доля успешных запусков
-    subplot(1, 2, 1);
     hold on;
     colors = lines(n_algorithms);
+    
+    % График: доля успешных запусков в зависимости от nmax
     for alg_idx = 1:n_algorithms
-        plot(1:N, success_rates(alg_idx, :), 'LineWidth', 2, 'Color', colors(alg_idx, :), ...
-            'DisplayName', sprintf('%s (%.1f%%)', algorithms{alg_idx}, 100*success_rates(alg_idx, end)));
+        plot(nmax_values, success_rates(alg_idx, :), ...
+            'LineWidth', 2, ...
+            'Color', colors(alg_idx, :), ...
+            'DisplayName', sprintf('%s (%.1f%% при nmax=%d)', ...
+                algorithms{alg_idx}, 100*success_rates(alg_idx, end), nmax_values(end)));
     end
     hold off;
     
-    xlabel('Количество запусков, N', 'FontSize', 12, 'FontWeight', 'bold');
-
-    ylabel(sprintf('Доля правильных ответов c допуском = %d', argument_precision), 'FontSize', 12, 'FontWeight', 'bold');
-    title(sprintf('Сходимость алгоритмов (%s)', func_name), 'FontSize', 14, 'FontWeight', 'bold');
+    xlabel('n_{max}', 'FontSize', 12, 'FontWeight', 'bold');
+    ylabel(sprintf('Доля правильных ответов c допуском = %g', argument_precision), ...
+           'FontSize', 12, 'FontWeight', 'bold');
+    title(sprintf('Сходимость алгоритмов (%s)', func_name), ...
+          'FontSize', 14, 'FontWeight', 'bold');
     legend('Location', 'best', 'FontSize', 10);
     grid on;
-    xlim([1, N]);
+    xlim([nmax_values(1), nmax_values(end)]);
     ylim([0, 1.05]);
     
-    % График 2: Среднее число вычислений функции
-    subplot(1, 2, 2);
-    bar_data = [avg_calculations, 100*success_rates(:, end)];
+    sgtitle(sprintf('Сравнение алгоритмов оптимизации (100 запусков на каждое n_{max})'), ...
+            'FontSize', 16, 'FontWeight', 'bold');
     
-    % Нормализация для двух осей
-    yyaxis left;
-    bar(1:n_algorithms, bar_data(:, 1));
-    ylabel('Среднее число вычислений функции', 'FontSize', 12, 'FontWeight', 'bold');
+    % Сохранение таблицы итоговой успешности при максимальном nmax
+    final_success = success_rates(:, end);
+    final_avg_calc = avg_calculations(:, end);
     
-    yyaxis right;
-    plot(1:n_algorithms, bar_data(:, 2), 'ro-', 'LineWidth', 2, 'MarkerSize', 8);
-    ylabel('Итоговая успешность, %', 'FontSize', 12, 'FontWeight', 'bold');
-    ylim([0, 105]);
-    
-    set(gca, 'XTick', 1:n_algorithms, 'XTickLabel', algorithms, 'FontSize', 10);
-    title('Эффективность алгоритмов', 'FontSize', 14, 'FontWeight', 'bold');
-    grid on;
-    
-    % Общий заголовок
-    sgtitle(sprintf('Сравнение алгоритмов оптимизации (N=%d запусков)', N), 'FontSize', 16, 'FontWeight', 'bold');
-    
-    % Сохранение результатов в файл
-    results_table = table(algorithms', success_rates(:, end), avg_calculations, ...
-        'VariableNames', {'Algorithm', 'SuccessRate', 'AvgCalculations'});
+    results_table = table(algorithms', final_success, final_avg_calc, ...
+        'VariableNames', {'Algorithm', 'SuccessRate_at_max_nmax', 'AvgCalculations_at_max_nmax'});
     disp(results_table);
 end

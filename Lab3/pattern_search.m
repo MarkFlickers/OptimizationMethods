@@ -22,7 +22,7 @@ function [min_arg, min_val, calculations] = pattern_search(arg, f_vals, initial_
     
     % Начальное значение
     current_val = f_vals(get_composite_index(current_idx(1), current_idx(2)));
-    calculations = calculations + 1;
+    calculations = calculations + 8;
     
     best_idx = current_idx;
     best_val = current_val;
@@ -50,7 +50,7 @@ function [min_arg, min_val, calculations] = pattern_search(arg, f_vals, initial_
             
             % Вычисляем значение функции
             new_val = f_vals(get_composite_index(new_idx(1), new_idx(2)));
-            calculations = calculations + 1;
+            calculations = calculations + 8;
             
             % Если нашли улучшение
             if new_val < current_val
@@ -59,6 +59,7 @@ function [min_arg, min_val, calculations] = pattern_search(arg, f_vals, initial_
                 improved = true;
                 break; % Переходим к следующей итерации
             end
+
         end
         
         % Обновляем лучшее решение
@@ -78,6 +79,10 @@ function [min_arg, min_val, calculations] = pattern_search(arg, f_vals, initial_
         
         % Критерий остановки
         if step_size < target_precision
+            break;
+        end
+
+        if calculations > nmax
             break;
         end
     end
