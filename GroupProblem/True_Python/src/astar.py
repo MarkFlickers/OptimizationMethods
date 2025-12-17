@@ -5,9 +5,12 @@ import itertools
 import time
 import math
 
-# TEMP = 6.247
-# TEMP = 3.011
-TEMP = 1
+TEMP_3 = 1.145
+TEMP_4 = 1.007
+TEMP_5 = 1.214
+TEMP_6 = 5.938
+TEMP_7 = 3.054
+TEMP = TEMP_3
 
 Bird = int
 BranchT = Tuple[Bird, ...]
