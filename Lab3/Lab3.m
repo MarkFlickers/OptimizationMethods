@@ -41,8 +41,8 @@ algorithm_params_func1.genetic = struct('population_size', 17, 'num_generations'
 % Запуск многократного тестирования для функции 1
 argument_precision = 0;
 run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func1);
-% argument_precision = 1;
-% run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func1);
+argument_precision = 1;
+run_multiple_tests('Function1', [x1 x2], f_vals_to_minimize, global_min_val, global_min_arg, argument_precision, N_runs, algorithm_params_func1);
 
 %% Функция 2
 % fprintf('\n\n=== АНАЛИЗ ФУНКЦИИ 2 ===\n');

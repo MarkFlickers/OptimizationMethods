@@ -3,76 +3,71 @@ import subprocess
 import sys
 import json
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed  # [web:137]
+from threading import Lock
+
 
 # Путь к astar.py
 ASTAR_PATH = Path("GroupProblem/True_Python/src/astar.py").resolve()
 
-def print_top5_steps_unperf0(path: str = "runs.jsonl") -> None:
+_print_lock = Lock()
+
+
+def print_top5_steps_unperf0(path: str = "runs_6.jsonl") -> None:
     best = []
     with open(path, "r", encoding="utf-8") as f:
-        for line in f:
+        for line_num, line in enumerate(f, 1):
             line = line.strip()
             if not line:
                 continue
-            obj = json.loads(line)  # JSONL: 1 JSON-объект на строку [web:124]
-            if int(obj.get("unperf", 1)) != 0:
+            try:
+                obj = json.loads(line)
+                # Process obj here
+            except json.JSONDecodeError as e:
+                print(f"Skipping invalid JSON on line {line_num}: {e}")
+                continue
+            if int(obj.get("unperf", 1)) != 0 or int(obj.get("steps", 1)) == 0:
                 continue
             best.append(obj)
 
     best.sort(key=lambda x: int(x.get("steps", 10**18)))
 
-    for i, obj in enumerate(best[:4], 1):
+    for i, obj in enumerate(best[:15], 1):
         print(
             f"{i}) steps={obj.get('steps')}, temp={obj.get('temp')}, "
             f"run={obj.get('run')}, dt_sec={obj.get('dt_sec')}, ts={obj.get('ts')}"
         )
 
-def run_astar(temp_start, num_temps=100, step=0.01):
-    """Запускает astar.py для диапазона TEMP"""
-    
-    current_temp = temp_start
-    best_overall_steps = float('inf')
-    best_overall_temp = temp_start
-    
-    for i in range(num_temps):
-        try:
-            # Запуск astar.py с аргументами
-            result = subprocess.run(
-                [sys.executable, str(ASTAR_PATH), f"--temp={current_temp:.3f}", "--runs=1"],
-                capture_output=True, 
-                text=True, 
-                timeout=30  # 30 сек таймаут на случай зависания
-            )
-            
-            if result.returncode == 0:
-                output = result.stdout.strip()
-                print(output)
-                
-                # Парсим результат для поиска лучшего
-                # if "BEST: Temp" in output:
-                #     lines = output.split('\n')
-                #     for line in lines:
-                #         if line.startswith("Temp") and "steps" in line:
-                #             parts = line.split()
-                #             steps = int(parts[parts.index('steps') - 1])
-                #             temp_val = float(parts[1])
-                #             if steps < best_overall_steps:
-                #                 best_overall_steps = steps
-                #                 best_overall_temp = temp_val
-            else:
-                print(f"ERROR (TEMP {current_temp:.3f}): {result.stderr}")
-            
-            current_temp += step
-            
-        except subprocess.TimeoutExpired:
-            print(f"TIMEOUT (TEMP {current_temp:.3f})")
-            current_temp += step
-        except KeyboardInterrupt:
-            print("\nInterrupted by user")
-            break
+
+def _run_one_temp(temp: float, timeout: float = 30.0) -> str:
+    """Один запуск astar.py для конкретного TEMP. Возвращает stdout (или строку ошибки)."""
+    try:
+        result = subprocess.run(
+            [sys.executable, str(ASTAR_PATH), f"--temp={temp:.3f}", "--runs=1"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return f"ERROR (TEMP {temp:.3f}): {result.stderr.strip()}"
+    except subprocess.TimeoutExpired:
+        return f"TIMEOUT (TEMP {temp:.3f})"
 
 
-if __name__ == "__main__":
-    # Запуск с вашими параметрами
-    run_astar(temp_start=3, num_temps=10000, step=0.001)
+def run_astar(temp_start: float, num_temps: int = 100, step: float = 0.01, workers: int = 8):
+    """Параллельно запускает astar.py для диапазона TEMP в N workers."""
+    temps = [temp_start + i * step for i in range(num_temps)]
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:  # ThreadPoolExecutor подходит для subprocess [web:137]
+        futures = {ex.submit(_run_one_temp, t): t for t in temps}
+
+        for fut in as_completed(futures):
+            out = fut.result()
+            with _print_lock:
+                print(out)
+
+
+if __name__ == "__main__": # 6
+    run_astar(temp_start=0.0, num_temps=10000, step=0.001, workers=8)
     print_top5_steps_unperf0()
