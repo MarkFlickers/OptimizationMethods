@@ -248,10 +248,6 @@ class E2EPipeline:
         return self.ctx
 
 
-# ============================================================================
-# Convenient top-level function
-# ============================================================================
-
 def run_e2e(
     inputs_dir: str,
     output_dir: str,
