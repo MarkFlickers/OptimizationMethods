@@ -6,8 +6,9 @@ import time
 import math
 
 # TEMP = 6.247
-# TEMP = 3.011
-TEMP = 1
+# TEMP = 3.054
+# TEMP = 1
+TEMP = 1.04884
 
 Bird = int
 BranchT = Tuple[Bird, ...]
@@ -173,7 +174,7 @@ class AStarSolver:
         moves.reverse()
         return moves
 
-    def solve(self, time_limit: float = 20.0) -> tuple:
+    def solve(self, time_limit: float = 120.0) -> tuple:
         open_heap: List = []
         g_scores: Dict = {}
         came_from: Dict = {}
@@ -314,81 +315,83 @@ class AStarSolver:
 
 if __name__ == "__main__":
     import argparse
-    import sys
-    
-    parser = argparse.ArgumentParser(description="A* Bird Puzzle Solver")
-    parser.add_argument("--temp", type=float, required=True, help="Starting TEMP value")
-    parser.add_argument("--runs", type=int, default=1, help="Number of runs")
-    
+    import json
+    import time as _time
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--temp", type=float, required=True)
+    parser.add_argument("--time_limit", type=float, default=10.0)
+    parser.add_argument("--runs", type=int, default=1)
+    parser.add_argument("--jsonl", type=str, default="runs_7.jsonl")  # можно отключить: --jsonl ""
     args = parser.parse_args()
-    
+
     # DATA = [
-    #     [4, 4, 4, 3, 4, 5, 2, 3, 2, 3, 6, 5],
-    #     [6, 4, 2, 4, 6, 2, 2, 3, 2, 3, 2, 4],
-    #     [5, 4, 2, 3, 6, 1, 3, 1, 2, 4, 3, 4],
-    #     [1, 5, 2, 3, 4, 1, 1, 1, 5, 1, 2, 1],
-    #     [6, 6, 1, 5, 1, 5, 2, 5, 6, 3, 5, 6],
-    #     [5, 2, 2, 4, 6, 5, 3, 3, 1, 3, 2, 5],
-    #     [3, 4, 4, 6, 2, 1, 4, 4, 5, 6, 1, 5],
-    #     [1, 1, 3, 4, 1, 1, 4, 5, 2, 6, 1, 1],
-    #     [2, 4, 6, 6, 1, 6, 4, 5, 6, 3, 6, 6],
-    #     [5, 4, 6, 1, 5, 6, 3, 5, 6, 2, 1, 6],
-    #     [2, 4, 3, 5, 3, 2, 6, 3, 1, 1, 3, 2],
-    #     [5, 2, 4, 5, 3, 3, 5, 2, 4, 6, 5, 3],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [5, 7, 3, 3, 3, 7, 4, 2, 5, 2, 6, 6, 6, 1],
+    #     [3, 5, 5, 1, 5, 1, 4, 4, 7, 7, 6, 5, 7, 5],
+    #     [3, 3, 7, 2, 5, 6, 5, 7, 4, 5, 3, 2, 2, 5],
+    #     [6, 4, 2, 6, 2, 6, 3, 7, 5, 4, 7, 5, 4, 6],
+    #     [4, 5, 2, 6, 4, 4, 3, 1, 7, 7, 5, 3, 4, 1],
+    #     [3, 1, 1, 6, 5, 1, 5, 3, 3, 1, 1, 1, 4, 4],
+    #     [6, 2, 7, 2, 3, 3, 4, 3, 5, 7, 1, 2, 2, 4],
+    #     [4, 7, 3, 4, 4, 5, 2, 1, 2, 4, 2, 4, 2, 7],
+    #     [3, 6, 7, 2, 4, 6, 1, 3, 3, 4, 5, 1, 5, 3],
+    #     [2, 4, 1, 7, 4, 1, 2, 5, 1, 2, 3, 6, 7, 7],
+    #     [7, 3, 5, 7, 6, 7, 1, 6, 1, 3, 4, 2, 5, 4],
+    #     [6, 5, 7, 7, 6, 5, 6, 7, 3, 4, 1, 2, 6, 1],
+    #     [6, 2, 1, 6, 1, 2, 4, 5, 2, 6, 6, 7, 1, 5],
+    #     [3, 2, 7, 3, 1, 1, 3, 2, 7, 2, 6, 6, 6, 1],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     # ]
 
     DATA = [
-            [5, 7, 3, 3, 3, 7, 4, 2, 5, 2, 6, 6, 6, 1],
-            [3, 5, 5, 1, 5, 1, 4, 4, 7, 7, 6, 5, 7, 5],
-            [3, 3, 7, 2, 5, 6, 5, 7, 4, 5, 3, 2, 2, 5],
-            [6, 4, 2, 6, 2, 6, 3, 7, 5, 4, 7, 5, 4, 6],
-            [4, 5, 2, 6, 4, 4, 3, 1, 7, 7, 5, 3, 4, 1],
-            [3, 1, 1, 6, 5, 1, 5, 3, 3, 1, 1, 1, 4, 4],
-            [6, 2, 7, 2, 3, 3, 4, 3, 5, 7, 1, 2, 2, 4],
-            [4, 7, 3, 4, 4, 5, 2, 1, 2, 4, 2, 4, 2, 7],
-            [3, 6, 7, 2, 4, 6, 1, 3, 3, 4, 5, 1, 5, 3],
-            [2, 4, 1, 7, 4, 1, 2, 5, 1, 2, 3, 6, 7, 7],
-            [7, 3, 5, 7, 6, 7, 1, 6, 1, 3, 4, 2, 5, 4],
-            [6, 5, 7, 7, 6, 5, 6, 7, 3, 4, 1, 2, 6, 1],
-            [6, 2, 1, 6, 1, 2, 4, 5, 2, 6, 6, 7, 1, 5],
-            [3, 2, 7, 3, 1, 1, 3, 2, 7, 2, 6, 6, 6, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ]
-    
-    current_temp = args.temp
-    NUM_RUNS = args.runs
-    
-    best_steps = float('inf')
-    best_temp = current_temp
-    
-    for run in range(NUM_RUNS):
-        TEMP = current_temp
-        
+        [4, 4, 4, 3, 4, 5, 2, 3, 2, 3, 6, 5],
+        [6, 4, 2, 4, 6, 2, 2, 3, 2, 3, 2, 4],
+        [5, 4, 2, 3, 6, 1, 3, 1, 2, 4, 3, 4],
+        [1, 5, 2, 3, 4, 1, 1, 1, 5, 1, 2, 1],
+        [6, 6, 1, 5, 1, 5, 2, 5, 6, 3, 5, 6],
+        [5, 2, 2, 4, 6, 5, 3, 3, 1, 3, 2, 5],
+        [3, 4, 4, 6, 2, 1, 4, 4, 5, 6, 1, 5],
+        [1, 1, 3, 4, 1, 1, 4, 5, 2, 6, 1, 1],
+        [2, 4, 6, 6, 1, 6, 4, 5, 6, 3, 6, 6],
+        [5, 4, 6, 1, 5, 6, 3, 5, 6, 2, 1, 6],
+        [2, 4, 3, 5, 3, 2, 6, 3, 1, 1, 3, 2],
+        [5, 2, 4, 5, 3, 3, 5, 2, 4, 6, 5, 3],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ]
+
+    # Один запуск (runs=1) — проще для тюнера; но оставим цикл
+    last_result = None
+    cur_temp = args.temp
+
+    for run in range(args.runs):
+        TEMP = cur_temp
+
         start_state = State.from_lists(DATA)
         solver = AStarSolver(start_state)
-        
-        t0 = time.perf_counter()
-        steps, moves, res_state = solver.solve(time_limit = 10.0)
-        dt = time.perf_counter() - t0
-        
-        print(f"Temp {TEMP:.3f} Run {run+1}: {steps} steps, {dt:.4f} sec, unperf={res_state.unperfectness}")
-        
-        import json, time
-        open("runs_7.jsonl", "a", encoding="utf-8").write(
-            json.dumps(
-                {"temp": round(TEMP, 3), "run": run + 1, "steps": steps, "dt_sec": round(dt, 4), "unperf": res_state.unperfectness, "ts": time.time()},
-                ensure_ascii=False
-            ) + "\n"
-        )
 
-        # Сохраняем лучший результат
-        if res_state.unperfectness == 0 and steps < best_steps:
-            best_steps = steps
-            best_temp = TEMP
-        
-        current_temp += 0.01
+        t0 = _time.perf_counter()
+        steps, moves, res_state = solver.solve(time_limit=args.time_limit)
+        dt = _time.perf_counter() - t0
+
+        last_result = {
+            "temp": round(TEMP, 6),
+            "run": run + 1,
+            "steps": int(steps),
+            "dt_sec": float(dt),
+            "unperf": float(res_state.unperfectness),
+            "time_limit": float(args.time_limit),
+            "ts": float(_time.time()),
+        }
+
+        if args.jsonl:
+            with open(args.jsonl, "a", encoding="utf-8") as f:
+                f.write(json.dumps(last_result, ensure_ascii=False) + "\n")
+
+        cur_temp += 0.01
+
+    # Тюнер будет читать именно ЭТУ строку
+    print(json.dumps(last_result, ensure_ascii=False))
