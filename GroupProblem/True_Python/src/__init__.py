@@ -13,6 +13,7 @@ from .BranchIntegrity import BranchProcessor
 from .temp import PyVersion
 from .astar import AStarSolver
 from .astar import State
+from .tune_temp import tune_temp
 
 __all__ = [
     'BranchIntegrity',
@@ -20,5 +21,6 @@ __all__ = [
     'PyVersion',
     'State',
     'OrderProcessor',
-    'BranchProcessor'
+    'BranchProcessor',
+    'tune_temp',
     ]

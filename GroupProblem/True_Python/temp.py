@@ -13,7 +13,7 @@ ASTAR_PATH = Path("GroupProblem/True_Python/src/astar.py").resolve()
 _print_lock = Lock()
 
 
-def print_top5_steps_unperf0(path: str = "runs_6.jsonl") -> None:
+def print_top5_steps_unperf0(path: str = "runs_3.jsonl") -> None:
     best = []
     with open(path, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
@@ -69,5 +69,5 @@ def run_astar(temp_start: float, num_temps: int = 100, step: float = 0.01, worke
 
 
 if __name__ == "__main__": # 6
-    run_astar(temp_start=0.0, num_temps=10000, step=0.001, workers=8)
+    run_astar(temp_start=4.08, num_temps=1, step=0.001, workers=8)
     print_top5_steps_unperf0()

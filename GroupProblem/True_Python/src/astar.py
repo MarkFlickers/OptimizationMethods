@@ -8,7 +8,7 @@ import math
 # TEMP = 6.247
 # TEMP = 3.054
 # TEMP = 1
-TEMP = 1.04884
+TEMP = 1.0
 
 Bird = int
 BranchT = Tuple[Bird, ...]
@@ -323,8 +323,34 @@ if __name__ == "__main__":
     parser.add_argument("--time_limit", type=float, default=10.0)
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--jsonl", type=str, default="runs_7.jsonl")  # можно отключить: --jsonl ""
-    args = parser.parse_args()
+    parser.add_argument("--data_path", type=str, default="", help="Path to parsed_data.json (expects {'DATA': [...]})")
+    parser.add_argument("--data_json", type=str, default="", help="JSON with DATA (list of lists). If empty, uses built-in DATA.")
+    args = parser.parse_args()  
 
+    if args.data_path:
+        with open(args.data_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        DATA = payload["DATA"]
+    elif args.data_json:
+        DATA = json.loads(args.data_json)
+    else:
+        DATA = [
+            [4, 4, 4, 3, 4, 5, 2, 3, 2, 3, 6, 5],
+            [6, 4, 2, 4, 6, 2, 2, 3, 2, 3, 2, 4],
+            [5, 4, 2, 3, 6, 1, 3, 1, 2, 4, 3, 4],
+            [1, 5, 2, 3, 4, 1, 1, 1, 5, 1, 2, 1],
+            [6, 6, 1, 5, 1, 5, 2, 5, 6, 3, 5, 6],
+            [5, 2, 2, 4, 6, 5, 3, 3, 1, 3, 2, 5],
+            [3, 4, 4, 6, 2, 1, 4, 4, 5, 6, 1, 5],
+            [1, 1, 3, 4, 1, 1, 4, 5, 2, 6, 1, 1],
+            [2, 4, 6, 6, 1, 6, 4, 5, 6, 3, 6, 6],
+            [5, 4, 6, 1, 5, 6, 3, 5, 6, 2, 1, 6],
+            [2, 4, 3, 5, 3, 2, 6, 3, 1, 1, 3, 2],
+            [5, 2, 4, 5, 3, 3, 5, 2, 4, 6, 5, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
 
     # DATA = [
     #     [5, 7, 3, 3, 3, 7, 4, 2, 5, 2, 6, 6, 6, 1],
@@ -345,25 +371,6 @@ if __name__ == "__main__":
     #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     # ]
-
-
-    DATA = [
-        [4, 4, 4, 3, 4, 5, 2, 3, 2, 3, 6, 5],
-        [6, 4, 2, 4, 6, 2, 2, 3, 2, 3, 2, 4],
-        [5, 4, 2, 3, 6, 1, 3, 1, 2, 4, 3, 4],
-        [1, 5, 2, 3, 4, 1, 1, 1, 5, 1, 2, 1],
-        [6, 6, 1, 5, 1, 5, 2, 5, 6, 3, 5, 6],
-        [5, 2, 2, 4, 6, 5, 3, 3, 1, 3, 2, 5],
-        [3, 4, 4, 6, 2, 1, 4, 4, 5, 6, 1, 5],
-        [1, 1, 3, 4, 1, 1, 4, 5, 2, 6, 1, 1],
-        [2, 4, 6, 6, 1, 6, 4, 5, 6, 3, 6, 6],
-        [5, 4, 6, 1, 5, 6, 3, 5, 6, 2, 1, 6],
-        [2, 4, 3, 5, 3, 2, 6, 3, 1, 1, 3, 2],
-        [5, 2, 4, 5, 3, 3, 5, 2, 4, 6, 5, 3],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ]
 
     # Один запуск (runs=1) — проще для тюнера; но оставим цикл
     last_result = None
