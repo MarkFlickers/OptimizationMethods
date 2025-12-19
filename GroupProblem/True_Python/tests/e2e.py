@@ -492,14 +492,14 @@ class E2EPipeline:
                 self.ctx = step_obj.run(self.ctx)
                 if step_name == "parse":
                     brlen = int(self.ctx.data.get("BRANCH_LEN", 0))
-                if brlen > 26:
-                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch too long (BRANCH_LEN={brlen} > 26), timeout: skipping temp_preflight and solve")
-                    # опционально: сохраним маркер в output_dir
-                    try:
-                        self.ctx.save_json("timeout.json", {"reason": "branch_too_long", "BRANCH_LEN": brlen})
-                    except Exception:
-                        pass
-                    return self.ctx
+                    if brlen > 26:
+                        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - branch too long (BRANCH_LEN={brlen} > 26), timeout: skipping temp_preflight and solve")
+                        # опционально: сохраним маркер в output_dir
+                        try:
+                            self.ctx.save_json("timeout.json", {"reason": "branch_too_long", "BRANCH_LEN": brlen})
+                        except Exception:
+                            pass
+                        return self.ctx
             except Exception as e:
                 print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - ERROR - Step '{step_name}' failed: {e}")
                 raise
