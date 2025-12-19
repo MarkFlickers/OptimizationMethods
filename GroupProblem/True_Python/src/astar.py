@@ -203,7 +203,7 @@ class AStarSolver:
             best_solution = []
         
         iteration_count = 0
-        CHECK_TIME_INTERVAL = 100  # Check time every N iterations
+        CHECK_TIME_INTERVAL = 1  # Check time every N iterations
 
         while open_heap:
             # Periodically check elapsed time to avoid overhead
@@ -260,26 +260,6 @@ class AStarSolver:
         num_moves = len(best_solution) if best_solution else 0
 
         return num_moves, best_solution or [], best_state or self.start
-
-    # DATA = [
-    #         [5, 7, 3, 3, 3, 7, 4, 2, 5, 2, 6, 6, 6, 1],
-    #         [3, 5, 5, 1, 5, 1, 4, 4, 7, 7, 6, 5, 7, 5],
-    #         [3, 3, 7, 2, 5, 6, 5, 7, 4, 5, 3, 2, 2, 5],
-    #         [6, 4, 2, 6, 2, 6, 3, 7, 5, 4, 7, 5, 4, 6],
-    #         [4, 5, 2, 6, 4, 4, 3, 1, 7, 7, 5, 3, 4, 1],
-    #         [3, 1, 1, 6, 5, 1, 5, 3, 3, 1, 1, 1, 4, 4],
-    #         [6, 2, 7, 2, 3, 3, 4, 3, 5, 7, 1, 2, 2, 4],
-    #         [4, 7, 3, 4, 4, 5, 2, 1, 2, 4, 2, 4, 2, 7],
-    #         [3, 6, 7, 2, 4, 6, 1, 3, 3, 4, 5, 1, 5, 3],
-    #         [2, 4, 1, 7, 4, 1, 2, 5, 1, 2, 3, 6, 7, 7],
-    #         [7, 3, 5, 7, 6, 7, 1, 6, 1, 3, 4, 2, 5, 4],
-    #         [6, 5, 7, 7, 6, 5, 6, 7, 3, 4, 1, 2, 6, 1],
-    #         [6, 2, 1, 6, 1, 2, 4, 5, 2, 6, 6, 7, 1, 5],
-    #         [3, 2, 7, 3, 1, 1, 3, 2, 7, 2, 6, 6, 6, 1],
-    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #     ]
 
 # import random
 # from collections import Counter
