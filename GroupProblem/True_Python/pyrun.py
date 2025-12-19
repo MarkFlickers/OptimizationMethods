@@ -5,7 +5,6 @@ import argparse
 from os.path import join
 
 from tests import run_e2e
-from tests import run_ce2e
 
 
 def parse_args():
