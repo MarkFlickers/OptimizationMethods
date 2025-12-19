@@ -31,6 +31,21 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "ANDREY_HOME Python launch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "GroupProblem/True_Python/pyrun.py",
+            "python": "C:/Users/andree/AppData/Local/Programs/Python/Python314/python.exe",
+            "args": [
+                "--config", 
+                "GroupProblem/True_Python/data/test_config.json", 
+                "--data_root", 
+                "GroupProblem/True_Python/data",
+                // "--verbose",
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Vova Python launch",
             "type": "debugpy",
             "request": "launch",

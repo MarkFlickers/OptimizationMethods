@@ -1,7 +1,7 @@
 from datetime import datetime
 
 CTRLSYMBOLS = ["/", "DATA", "ORDER"]
-MAXBRNCHLEN = 26
+MAXBRNCHLEN = 1000
 MAXBRNCHCNT = 1000
 
 class BranchProcessor:

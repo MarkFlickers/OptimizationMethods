@@ -1,21 +1,30 @@
 {
-    "input_files": [
-        "BIRDS_4.txt"
-    ],
-    "available_files": [
-        "BIRDS_3.txt",
-        "BIRDS_4.txt",
-        "BIRDS_5.txt", 
-        "BIRDS_6.txt",
-        "BIRDS_7.txt",
-        "BIRDS_8.txt",
-        "BIRDS_9.txt",
-        "BIRDS_10.txt",
-        "BIRDS_11.txt",
-        "BIRDS_12.txt",
-        "BIRDS_13.txt",
-        "BIRDS__1.txt",
-        "BIRDS__2.txt",
-        "BIRDS__3.txt"
-    ]
+  "input_files": ["BIRDS_7.txt"],
+  "available_files": [
+    "BIRDS_3.txt",
+    "BIRDS_4.txt",
+    "BIRDS_5.txt",
+    "BIRDS_6.txt",
+    "BIRDS_7.txt",
+    "BIRDS_8.txt",
+    "BIRDS_9.txt",
+    "BIRDS_10.txt",
+    "BIRDS_11.txt",
+    "BIRDS_12.txt",
+    "BIRDS_13.txt",
+    "BIRDS__1.txt",
+    "BIRDS__2.txt",
+    "BIRDS__3.txt"
+  ],
+
+  "astar_py_path": "GroupProblem/True_Python/src/astar.py",
+  "matrix_config_file": "GroupProblem/True_Python/data/matrix_config.jsonl",
+  "temp_workers": 8,
+  "temp_time_limit": 3.0,
+
+  "tuner_py_path": "GroupProblem/True_Python/src/tune_temp.py",
+  "tune_t_min": 1.0,
+  "tune_t_max": 10.0,
+  "tune_workers": 16,
+  "tune_log_path": "tune_log.jsonl"
 }

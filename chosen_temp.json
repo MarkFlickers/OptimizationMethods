@@ -1,0 +1,10 @@
+{
+  "temp": 1.08256,
+  "solved": true,
+  "steps": 255,
+  "unperf": 0.0,
+  "dt_sec": 2.1843812000006437,
+  "time_limit": 2.0,
+  "total_tune_sec": 84.25595929997507,
+  "data_path": "C:\\Users\\Andrey Chasovskih\\Desktop\\ptichki\\OptimizationMethods\\GroupProblem\\True_Python\\data\\outputs\\BIRDS_7\\parsed_data.json"
+}

@@ -109,9 +109,6 @@ function run_multiple_tests(func_name, arg, f_vals, global_min_val, global_min_a
     xlim([nmax_values(1), nmax_values(end)]);
     ylim([0, 1.05]);
     
-    sgtitle(sprintf('Сравнение алгоритмов оптимизации (100 запусков на каждое n_{max})'), ...
-            'FontSize', 16, 'FontWeight', 'bold');
-    
     % Сохранение таблицы итоговой успешности при максимальном nmax
     final_success = success_rates(:, end);
     final_avg_calc = avg_calculations(:, end);
