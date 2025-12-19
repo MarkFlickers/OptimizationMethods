@@ -13,18 +13,35 @@ from typing import Dict, List, Tuple, Optional
 
 
 # -----------------------------
+# Глобальные настройки уточнения
+# -----------------------------
+# 0) стартовая сетка (grid_n точек равномерно на [t_min, t_max])
+# 1..5) 5 шагов уточнения: строим сетку вокруг лучшего temp:
+#       [center-half_width, center+half_width] с шагом step, с clamp к [t_min, t_max]
+REFINE_SCHEDULE = [
+    {"name": "init_grid", "grid_n": 250, "time_limit": 5.0},
+    {"name": "ref1", "half_width": 0.25,  "step": 1e-2, "time_limit": 5.0},
+    {"name": "ref2", "half_width": 0.06,  "step": 2e-3, "time_limit": 5.0},
+    {"name": "ref3", "half_width": 0.015, "step": 5e-4, "time_limit": 5.0},
+    {"name": "ref4", "half_width": 0.004, "step": 1e-4, "time_limit": 5.0},
+    {"name": "ref5", "half_width": 0.001, "step": 1e-5, "time_limit": 5.0},
+]
+
+
+# -----------------------------
 # Структуры
 # -----------------------------
 
 @dataclass(frozen=True)
 class EvalKey:
-    temp: float
+    temp_s: str
     time_limit: float
 
 
 @dataclass
 class EvalResult:
     temp: float
+    temp_s: str
     time_limit: float
     ok: bool
     steps: int
@@ -37,8 +54,17 @@ class EvalResult:
 # Утилиты
 # -----------------------------
 
-def round5(x: float) -> float:
-    return float(f"{x:.5f}")
+TEMP_DECIMALS = 9
+
+
+def norm_temp(x: float) -> float:
+    # Округляем всегда до 9 знаков после запятой [web:332]
+    return round(float(x), TEMP_DECIMALS)
+
+
+def temp_to_str(x: float) -> str:
+    # Всегда печатаем/передаем ровно 9 знаков после запятой [web:332][web:278]
+    return f"{norm_temp(x):.{TEMP_DECIMALS}f}"
 
 
 def clamp(x: float, lo: float, hi: float) -> float:
@@ -47,25 +73,27 @@ def clamp(x: float, lo: float, hi: float) -> float:
 
 def linspace(a: float, b: float, n: int) -> List[float]:
     if n <= 1:
-        return [a]
+        return [norm_temp(a)]
     step = (b - a) / (n - 1)
-    return [a + i * step for i in range(n)]
+    return [norm_temp(a + i * step) for i in range(n)]
 
 
-def neighborhood(center: float, half_width: float, step: float, lo: float, hi: float) -> List[float]:
-    c = round5(center)
+def arange_center(center: float, half_width: float, step: float, lo: float, hi: float) -> List[float]:
+    c = norm_temp(center)
     if step <= 0:
-        return [clamp(c, lo, hi)]
+        return [norm_temp(clamp(c, lo, hi))]
+
     m = int(round(half_width / step))
-    out = []
-    for k in range(-m, m + 1):
-        out.append(round5(clamp(c + k * step, lo, hi)))
+    out = [norm_temp(clamp(c + k * step, lo, hi)) for k in range(-m, m + 1)]
+
+    # uniq по строковому представлению (после округления до 9 знаков)
     seen = set()
     uniq = []
     for t in out:
-        if t not in seen:
-            seen.add(t)
-            uniq.append(t)
+        ts = temp_to_str(t)
+        if ts not in seen:
+            seen.add(ts)
+            uniq.append(norm_temp(float(ts)))
     return uniq
 
 
@@ -73,18 +101,22 @@ def is_solved(r: EvalResult) -> bool:
     return r.ok and r.unperf == 0.0
 
 
-def metric_key(r: EvalResult) -> Tuple:
+def better_by_unperf(a: EvalResult, b: EvalResult) -> bool:
     """
-    Чем меньше — тем лучше.
-    1) solved всегда выше unsolved
-    2) solved: steps, dt
-    3) unsolved: unperf, (prefer larger dt) чтобы выбирать "борющиеся" точки
+    True если a лучше b.
+    Приоритет:
+    1) ok=True лучше ok=False
+    2) меньший unperf лучше
+    3) меньший steps лучше
+    4) меньший dt_sec лучше
     """
-    if not r.ok:
-        return (2, 10**18, 10**18, 10**18)
-    if is_solved(r):
-        return (0, r.steps, r.dt_sec, r.temp)
-    return (1, r.unperf, -r.dt_sec, r.temp)
+    if a.ok != b.ok:
+        return a.ok and (not b.ok)
+    if a.unperf != b.unperf:
+        return a.unperf < b.unperf
+    if a.steps != b.steps:
+        return a.steps < b.steps
+    return a.dt_sec < b.dt_sec
 
 
 # -----------------------------
@@ -99,19 +131,14 @@ def run_astar_once(
     data_path: str,
     timeout_pad: float = 1.0,
 ) -> EvalResult:
-    t = round5(temp)
+    t = norm_temp(temp)
+    t_s = temp_to_str(t)
     tl = float(time_limit)
-
-    # DATA = list()
-    # with open(data_path, "r", encoding="utf-8") as f:
-    #     payload = json.load(f)
-    # DATA = payload["DATA"]
-    # print("DATA_LEN", len(DATA), "ROW_LEN", len(DATA[0]) if DATA else 0, file=sys.stderr)
 
     cmd = [
         python_exe,
         str(astar_path),
-        f"--temp={t:.5f}",
+        f"--temp={t_s}",            # уже округлено до 9 знаков [web:332]
         f"--time_limit={tl}",
         "--runs=1",
         "--jsonl=",
@@ -133,7 +160,7 @@ def run_astar_once(
     except subprocess.TimeoutExpired:
         dt = time.perf_counter() - t0
         return EvalResult(
-            temp=t, time_limit=tl, ok=False,
+            temp=t, temp_s=t_s, time_limit=tl, ok=False,
             steps=10**12, unperf=10**18, dt_sec=dt,
             raw={"error": "timeout"}
         )
@@ -142,7 +169,7 @@ def run_astar_once(
 
     if p.returncode != 0:
         return EvalResult(
-            temp=t, time_limit=tl, ok=False,
+            temp=t, temp_s=t_s, time_limit=tl, ok=False,
             steps=10**12, unperf=10**18, dt_sec=dt,
             raw={"error": "returncode", "stderr": p.stderr[-4000:], "stdout": p.stdout[-4000:]}
         )
@@ -150,7 +177,7 @@ def run_astar_once(
     lines = p.stdout.strip().splitlines()
     if not lines:
         return EvalResult(
-            temp=t, time_limit=tl, ok=False,
+            temp=t, temp_s=t_s, time_limit=tl, ok=False,
             steps=10**12, unperf=10**18, dt_sec=dt,
             raw={"error": "no_stdout"}
         )
@@ -160,8 +187,11 @@ def run_astar_once(
         steps = int(d.get("steps", 10**12))
         unperf = float(d.get("unperf", 10**18))
         dt_sec = float(d.get("dt_sec", dt))
+
+        tt = norm_temp(float(d.get("temp", t)))
         return EvalResult(
-            temp=round5(float(d.get("temp", t))),
+            temp=tt,
+            temp_s=temp_to_str(tt),
             time_limit=tl,
             ok=True,
             steps=steps,
@@ -171,7 +201,7 @@ def run_astar_once(
         )
     except Exception:
         return EvalResult(
-            temp=t, time_limit=tl, ok=False,
+            temp=t, temp_s=t_s, time_limit=tl, ok=False,
             steps=10**12, unperf=10**18, dt_sec=dt,
             raw={"error": "bad_json", "stdout": p.stdout[-4000:]}
         )
@@ -189,20 +219,22 @@ def eval_many(
 ) -> List[EvalResult]:
     tl = float(time_limit)
 
+    # uniq по строке temp (после округления до 9 знаков)
     seen = set()
     uniq = []
     for t in temps:
-        t5 = round5(t)
-        if t5 not in seen:
-            seen.add(t5)
-            uniq.append(t5)
+        t = norm_temp(t)
+        t_s = temp_to_str(t)
+        if t_s not in seen:
+            seen.add(t_s)
+            uniq.append(t)
 
     results: List[EvalResult] = []
     futs = []
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for t in uniq:
-            key = EvalKey(t, tl)
+            key = EvalKey(temp_to_str(t), tl)
             if key in cache:
                 results.append(cache[key])
                 continue
@@ -210,13 +242,13 @@ def eval_many(
 
         for fut in as_completed(futs):
             r = fut.result()
-            cache[EvalKey(round5(r.temp), tl)] = r
+            cache[EvalKey(r.temp_s, tl)] = r
             results.append(r)
 
             if log_path:
                 with log_path.open("a", encoding="utf-8") as f:
                     f.write(json.dumps({
-                        "temp": round5(r.temp),
+                        "temp": r.temp_s,
                         "time_limit": r.time_limit,
                         "ok": r.ok,
                         "steps": r.steps,
@@ -229,18 +261,15 @@ def eval_many(
 
 
 # -----------------------------
-# Successive Halving tuner
+# Итеративное уточнение
 # -----------------------------
 
-def select_top_diverse(results: List[EvalResult], k: int, min_dist: float) -> List[EvalResult]:
-    ordered = sorted(results, key=metric_key)
-    picked: List[EvalResult] = []
-    for r in ordered:
-        if len(picked) >= k:
-            break
-        if all(abs(r.temp - p.temp) >= min_dist for p in picked):
-            picked.append(r)
-    return picked if picked else ordered[:k]
+def pick_best_by_unperf(results: List[EvalResult]) -> EvalResult:
+    best = results[0]
+    for r in results[1:]:
+        if better_by_unperf(r, best):
+            best = r
+    return best
 
 
 def tune_temp(
@@ -254,96 +283,58 @@ def tune_temp(
 ) -> EvalResult:
     cache: Dict[EvalKey, EvalResult] = {}
 
-    init_n = 600
-    init_budget = 0.05
-    print(f"[Init] scan n={init_n} budget={init_budget}s range=[{t_min},{t_max}]")
-    init_temps = linspace(t_min, t_max, init_n)
+    init_cfg = REFINE_SCHEDULE[0]
+    init_n = int(init_cfg["grid_n"])
+    budget = float(init_cfg["time_limit"])
+
+    print(f"[Init] grid n={init_n} budget={budget}s range=[{t_min},{t_max}]")
+    temps0 = linspace(t_min, t_max, init_n)
 
     r0 = eval_many(
-        astar_path, init_temps,
-        time_limit=init_budget,
+        astar_path, temps0,
+        time_limit=budget,
         python_exe=python_exe,
         workers=workers,
         cache=cache,
         data_path=data_path,
         log_path=log_path
     )
+    best = pick_best_by_unperf(r0)
+    print(f"  best0: temp={best.temp_s} ok={best.ok} unperf={best.unperf:.6g} steps={best.steps} dt={best.dt_sec:.4f}")
 
-    eta = 3
-    budgets = [0.10, 0.25, 0.60, 1.20, 2.00]
-    candidates = select_top_diverse(r0, k=120, min_dist=0.01)
+    for i, cfg in enumerate(REFINE_SCHEDULE[1:], 1):
+        half_w = float(cfg["half_width"])
+        step = float(cfg["step"])
+        budget = float(cfg["time_limit"])
 
-    print(f"[Rung 0] keep={len(candidates)} (from {len(r0)})")
-    best_now = min(candidates, key=metric_key)
-    print(f"  best: temp={best_now.temp:.5f} solved={is_solved(best_now)} steps={best_now.steps} unperf={best_now.unperf:.3f} dt={best_now.dt_sec:.4f}")
+        temps = arange_center(best.temp, half_width=half_w, step=step, lo=t_min, hi=t_max)
 
-    rung_results_all: List[EvalResult] = r0[:]
-
-    for rung, bud in enumerate(budgets, 1):
-        temps = [c.temp for c in candidates]
-        rr = eval_many(
-            astar_path, temps,
-            time_limit=bud,
-            python_exe=python_exe,
-            workers=workers,
-            cache=cache,
-            data_path=data_path,
-            log_path=log_path
-        )
-        rung_results_all += rr
-
-        rr_sorted = sorted(rr, key=metric_key)
-
-        keep = max(10, len(rr_sorted) // eta)
-        candidates = select_top_diverse(rr_sorted[: max(keep * 2, keep)], k=keep, min_dist=0.005)
-
-        best_now = rr_sorted[0]
-        print(f"[Rung {rung}] budget={bud}s keep={len(candidates)} best: temp={best_now.temp:.5f} solved={is_solved(best_now)} steps={best_now.steps} unperf={best_now.unperf:.3f} dt={best_now.dt_sec:.4f}")
-
-        if any(is_solved(x) for x in rr_sorted[:5]) and len(candidates) <= 12:
-            break
-
-    best_global = min(rung_results_all, key=metric_key)
-    center = best_global.temp
-    print(f"\n[Refine] center={center:.5f} based on best_global solved={is_solved(best_global)} steps={best_global.steps} unperf={best_global.unperf:.3f}")
-
-    refine_plan = [
-        (0.20, 0.01, 0.60),
-        (0.06, 0.002, 1.20),
-        (0.015, 0.0005, 2.00),
-        (0.004, 0.0001, 2.00),
-    ]
-
-    for i, (half_w, step, bud) in enumerate(refine_plan, 1):
-        temps = neighborhood(center, half_width=half_w, step=step, lo=t_min, hi=t_max)
-
-        MAX_TEMPS = 220
-        if len(temps) > MAX_TEMPS:
-            idxs = [int(j * (len(temps) - 1) / (MAX_TEMPS - 1)) for j in range(MAX_TEMPS)]
+        if len(temps) > 600:
+            idxs = [int(j * (len(temps) - 1) / (600 - 1)) for j in range(600)]
             temps = [temps[j] for j in idxs]
 
         rr = eval_many(
             astar_path, temps,
-            time_limit=bud,
+            time_limit=budget,
             python_exe=python_exe,
             workers=workers,
             cache=cache,
             data_path=data_path,
             log_path=log_path
         )
-        best_local = min(rr, key=metric_key)
+        best = pick_best_by_unperf(rr)
 
-        if metric_key(best_local) < metric_key(best_global):
-            best_global = best_local
-            center = best_local.temp
+        print(
+            f"[Ref {i}] name={cfg['name']} budget={budget}s "
+            f"center={best.temp_s} unperf={best.unperf:.6g} steps={best.steps} ok={best.ok} "
+            f"(half_width={half_w}, step={step}, points={len(temps)})"
+        )
 
-        print(f"  [Ref {i}] budget={bud}s best_local: temp={best_local.temp:.5f} solved={is_solved(best_local)} steps={best_local.steps} unperf={best_local.unperf:.3f} dt={best_local.dt_sec:.4f}")
-
-    return best_global
+    return best
 
 
 # -----------------------------
-# __main__ (без аргументов)
+# __main__
 # -----------------------------
 
 if __name__ == "__main__":
@@ -352,11 +343,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--astar_path", type=str, default="GroupProblem/True_Python/src/astar.py")
     parser.add_argument("--data_path", type=str, default="GroupProblem/True_Python/data/outputs/BIRDS_7/parsed_data.json")
+
+    # Пределы по temp: 1..5
     parser.add_argument("--t_min", type=float, default=1.0)
-    parser.add_argument("--t_max", type=float, default=10.0)
+    parser.add_argument("--t_max", type=float, default=5.0)
+
     parser.add_argument("--workers", type=int, default=16)
     parser.add_argument("--log_path", type=str, default="tune_log.jsonl")
-    parser.add_argument("--out_json", type=str, default="chosen_temp.json")  # куда записать temp
+    parser.add_argument("--out_json", type=str, default="chosen_temp.json")
     args = parser.parse_args()
 
     ASTAR_PATH = Path(args.astar_path).resolve()
@@ -364,7 +358,6 @@ if __name__ == "__main__":
     LOG_PATH = Path(args.log_path).resolve()
     OUT_JSON = Path(args.out_json).resolve()
 
-    # (1) Проверки
     if not ASTAR_PATH.exists():
         print(f"ERROR: astar.py not found: {ASTAR_PATH}", file=sys.stderr)
         raise SystemExit(2)
@@ -373,10 +366,9 @@ if __name__ == "__main__":
         print(f"ERROR: parsed_data.json not found: {DATA_PATH}", file=sys.stderr)
         raise SystemExit(2)
 
-    # (2) Очистка лога (если нужен каждый запуск заново)
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with LOG_PATH.open("w", encoding="utf-8") as f:
+        with LOG_PATH.open("w", encoding="utf-8"):
             pass
     except Exception as e:
         print(f"WARNING: cannot reset log file {LOG_PATH}: {e}", file=sys.stderr)
@@ -401,10 +393,9 @@ if __name__ == "__main__":
     )
     total = time.perf_counter() - t0
 
-    # (3) Записываем chosen_temp.json (это будет читать e2e)
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     result_payload = {
-        "temp": round5(best.temp),
+        "temp": best.temp_s,             # ровно 9 знаков после запятой [web:332]
         "solved": is_solved(best),
         "steps": best.steps,
         "unperf": best.unperf,
@@ -416,7 +407,5 @@ if __name__ == "__main__":
     with OUT_JSON.open("w", encoding="utf-8") as f:
         json.dump(result_payload, f, ensure_ascii=False, indent=2)
 
-    # (4) Дополнительно печатаем в stdout, чтобы можно было парсить и без файла
     print(json.dumps(result_payload, ensure_ascii=False))
-
     print("=== TEMP TUNER END ===")

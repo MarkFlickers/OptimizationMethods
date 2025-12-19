@@ -51,7 +51,7 @@ def _run_one_temp(
         cmd = [
             sys.executable,
             str(ASTAR_PATH),
-            f"--temp={temp:.3f}",
+            f"--temp={temp:.9f}",
             "--runs=1",
             f"--jsonl={jsonl_file}",
             f"--time_limit={time_limit}",
@@ -108,12 +108,12 @@ if __name__ == "__main__":
     top_n = 1   # Best count
 
     run_astar(
-        temp_start=1.000,
+        temp_start=1.06910,
         jsonl_file=jsonl_file,
         data_path=DATA_path,
-        num_temps=1,
-        step=0.001,
+        num_temps=10000,
+        step=0.0000001,
         workers=8,
-        time_limit=0.1,
+        time_limit=5.0,
     )
     print_top5_steps_unperf0(jsonl_file, top_n=top_n)

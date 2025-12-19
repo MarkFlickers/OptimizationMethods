@@ -42,7 +42,7 @@ def choose_temp_from_matrix_or_tune(
     workers: int = 8,
     time_limit: float = 3.0,
     tune_t_min: float = 1.0,
-    tune_t_max: float = 10.0,
+    tune_t_max: float = 2.0,
     tune_workers: int = 8,
 ) -> float:
     matrix_rows = load_matrix_config_jsonl(matrix_path)
@@ -141,7 +141,7 @@ def run_tuner_subprocess(
     out_json_path: str,
     log_path: str,
     t_min: float = 1.0,
-    t_max: float = 10.0,
+    t_max: float = 2.0,
     workers: int = 8,
 ) -> dict:
     cmd = [
@@ -156,7 +156,7 @@ def run_tuner_subprocess(
         f"--workers={workers}",
     ]
 
-    p = subprocess.run(cmd, capture_output=True, text=True)
+    p = subprocess.run(cmd, capture_output=False, text=True)
 
     if p.returncode != 0:
         return {
@@ -374,7 +374,7 @@ class TempPreflightStep(PipelineStep):
         tuner_out_json = os.path.join(ctx.output_dir, "chosen_temp.json")
 
         t_min = float(cfg.get("tune_t_min", 1.0))
-        t_max = float(cfg.get("tune_t_max", 10.0))
+        t_max = float(cfg.get("tune_t_max", 2.0))
         tune_workers = int(cfg.get("tune_workers", workers))
 
         chosen_temp = choose_temp_from_matrix_or_tune(
