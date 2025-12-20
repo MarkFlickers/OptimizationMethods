@@ -1,0 +1,46 @@
+DATA
+H A D D A C E B C C B B D B D E A F G B F D E G H B E D G E A A A E B D C C H F
+F C C B G D C G B E D A B A H F B H F C D F B D B F A E D D C D G D F G F D D D
+G E D C E H G H F H F H G E G G G E B H A G E F D B D H E A C C A F G E H A B B
+A H D F G E G F E E F C E G C H A C B C E G F C F B H G G G D G A D G D G H G A
+B D D D E F C F C E G D E B D C D F A D E D B G D F B B F E E C H H A G C E B D
+C A C H E G H E C A G H G G H G B D D E F C B B G C D E B A A G B A A G H A C C
+B B E H F H E B H A B G E A E F H G H E D H H B E D G F F E A H A D H A H E F D
+G D G F B D E D E D A H D F F E C E B G D A C G A A G D A E H F A D C F E B A F
+G F A A C H A A E D D A D C E D H D A A H G C B B G B G C B G F E D D E A A D G
+C C G E E C F F B H H A H A E D F D F F E G G C G B A F G E E F C F B D G H F D
+C H D F E B B H F H D H G A B G E F C F D E A H E F E E C A D F H B H B G A E C
+A H E B A C F B B E H C D G B D C H G E A H F A H C F F B A D B B E C G A B B A
+A D D G B B D A F F H F C C E D B C B D A D A G C C D F G G E G H G C F G A C E
+A D F H B C D B H F C B B A F E E A H G F E A A A A F E B B A H F H F B C E C E
+F G B D H F F E C B F F B B B B H G B A A G E F E G F E G F D E B H A D D B F H
+A H E B F E G B C E E H C C G B F B B E F D A F A E C F C F B H D F C G C C B A
+B C B F C C H D F D H D C E D D H A A G A A B B A E F B D A F F F H B E G C B C
+G B F C C G C F G E G B C E C E C E G D H B C E H F G F H F C H C C E C A A B D
+A D H G G G E D E D F H E C F B H C F H B F G B C H B H D A G C A G A B F B H H
+D D G D G F C H F E H G H F G G G F F H A E G H G C E D B A G C A F A C H E G H
+D H G H E H D B D E G F H G E E C C C C G A C A B A E G D G A E A B A C C D G F
+H G B D B H G A E H D F C F H F C C D D B B H A B A H B E A E G A H C D E D C G
+A A C F B G C G C H H F C B E E B A C F H C H A D G A D H B A F F A B F C C C F
+E H A H G C G F H G D E A A E G H G F H A G A C D H E C F F E G D H A G D D B F
+F D E F F A B C F A G D H C F D F F H A F F H D B H D D F B F G G H H D G E H H
+C B A A E G F D E F B E C A C C G E F F C B E C A E D C H F F H A C F A G F C F
+E E A B A B H E H D H G A C E H C D H H C D A B A A C B D A B A D E B D D C G F
+C G B G C A H A A A E E E F D H A D C A H E H D E E B H F A B D E A E C E A F H
+E C D C C H B F E F E E C D D H C C F A E G D A E D C A B A E B D C C A B E A G
+H A D A A D B F F H A H G E B E G B E E C F G F B F G B D E C A E C B H F H E D
+E A C A B C B E F A G D G F F C B G D H E H E H G E D A H G H G E F C F H H F D
+D B A C H H C H D F A E B B H H D H H H H F B G B A H F G B A H H B A B A D E D
+A H E G B C G G G H G E H D F E E D A H D A H G C C G G D G B H C C H G H E C A
+B B H G H B A H F G C A F E H B G H F D B C H F E C E F G G D B H G B C E C B H
+G C E G B D C F D C D A A D A A A D C H E G D E E F E F G D G G A B H C B D H E
+E C D B A G G F A G E F A D D A G C B C A H C A F C A E F E H A G D D G B F H F
+F F B E E B E B D E H C C G C B E G H G G C C F A D A B D G F F F D D G E E B F
+A B A F F C G B H A D G B G B B D C G D C G C G G D H F C E D D D E H D F B E C
+B H D D C C E G H D E C F B C B E E H B C F B G A G F C A D D B F E H H G A B D
+G B B H H C F D G B B E D E B A D G F D B B A F G H C H H G B F B A C A B H D C
+==
+==
+==
+==
+/
