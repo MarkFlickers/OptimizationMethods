@@ -4,12 +4,18 @@ import heapq
 import itertools
 import time
 import math
+import argparse
+import json
+import time as _time
 
-TEMP = 1.0
+
+TEMP = 1.004016
+
 
 Bird = int
 BranchT = Tuple[Bird, ...]
 StateT = Tuple[BranchT, ...]
+
 
 @dataclass(frozen=True)
 class Move:
@@ -18,6 +24,7 @@ class Move:
     dst_branch: int
     dst_pos: int
     bird: Bird
+
 
 
 @dataclass(frozen=True)
@@ -42,6 +49,7 @@ class State:
     def from_lists(branch_lists: List[List[int]]) -> "State":
         branches = tuple(tuple(row) for row in branch_lists)
         return State._create_cached(branches)
+
 
     @staticmethod
     def _calculate_heuristics(branches, tops):
@@ -68,6 +76,7 @@ class State:
             result += unordered * unorder_penalty
 
         return result
+
 
     @staticmethod
     def _create_cached(branches: StateT) -> "State":
@@ -99,6 +108,7 @@ class State:
             _cached_hash=branches_hash
         )
 
+
     def apply_move(self, move: Move) -> "State":
         b_list = [list(b) for b in self.branches]
         src_branch = b_list[move.src_branch]
@@ -112,6 +122,7 @@ class State:
         return State._create_cached(new_branches)
 
 
+
 @dataclass
 class Node:
     state: State
@@ -119,10 +130,12 @@ class Node:
     f: int
 
 
+
 class AStarSolver:
     def __init__(self, start: State):
         self.start = start
         self.counter = itertools.count()
+
 
     def find_possible_moves(self, state: State) -> List[Move]:
         moves: List[Move] = []
@@ -146,7 +159,7 @@ class AStarSolver:
                 
                 if dst_pos >= branch_len:
                     continue
-                    
+                
                 if dst_pos > 0 and branches[dst][dst_pos - 1] != bird_to_move:
                     continue
                 
@@ -158,6 +171,7 @@ class AStarSolver:
                     moves.append(move)
         
         return empty_branch_moves + moves
+
 
     def reconstruct_solution(self, came_from: Dict, end_state: State) -> List[Move]:
         moves: List[Move] = []
@@ -171,7 +185,8 @@ class AStarSolver:
         moves.reverse()
         return moves
 
-    def solve(self, time_limit: float = 120.0) -> tuple:
+
+    def solve(self, time_limit: float = 360.0) -> tuple:
         open_heap: List = []
         g_scores: Dict = {}
         came_from: Dict = {}
@@ -200,7 +215,7 @@ class AStarSolver:
             best_solution = []
         
         iteration_count = 0
-        CHECK_TIME_INTERVAL = 1  # Check time every N iterations
+        CHECK_TIME_INTERVAL = 1000  # Check time every N iterations
 
         while open_heap:
             # Periodically check elapsed time to avoid overhead
@@ -242,7 +257,7 @@ class AStarSolver:
                 
                 if new_state in closed_set:
                     continue
-                    
+                
                 tentative_g = cur_g + 1
 
                 current_g = g_scores.get(new_state, 10**12)
@@ -258,43 +273,8 @@ class AStarSolver:
 
         return num_moves, best_solution or [], best_state or self.start
 
-# import random
-# from collections import Counter
-
-# def generate_data():
-#     # Параметры: 14 строк с данными, 3 пустые в конце, всего 17 строк
-#     NUM_ROWS = 14
-#     NUM_COLS = 14
-#     NUM_VALUES_PER_DIGIT = 28  # по 28 штук каждого от 1 до 7
-    
-#     # Создаем пул значений: 28 * 7 = 196 значений
-#     values_pool = []
-#     for digit in range(1, 8):
-#         values_pool.extend([digit] * NUM_VALUES_PER_DIGIT)
-    
-#     # Перемешиваем пул
-#     random.shuffle(values_pool)
-    
-#     # Генерируем 14 строк по 14 элементов
-#     data = []
-#     idx = 0
-#     for _ in range(NUM_ROWS):
-#         row = values_pool[idx:idx + NUM_COLS]
-#         data.append(row)
-#         idx += NUM_COLS
-    
-#     # Добавляем 3 пустые строки
-#     for _ in range(3):
-#         data.append([0] * NUM_COLS)
-    
-#     return data
-
 
 if __name__ == "__main__":
-    import argparse
-    import json
-    import time as _time
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--temp", type=float, required=True)
     parser.add_argument("--time_limit", type=float, default=10.0)
@@ -302,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument("--jsonl", type=str, default="runs_7.jsonl")  # можно отключить: --jsonl ""
     parser.add_argument("--data_path", type=str, default="", help="Path to parsed_data.json (expects {'DATA': [...]})")
     parser.add_argument("--data_json", type=str, default="", help="JSON with DATA (list of lists). If empty, uses built-in DATA.")
-    args = parser.parse_args()  
+    args = parser.parse_args() 
 
     if args.data_path:
         with open(args.data_path, "r", encoding="utf-8") as f:
@@ -342,7 +322,13 @@ if __name__ == "__main__":
         solver = AStarSolver(start_state)
 
         t0 = _time.perf_counter()
-        steps, moves, res_state = solver.solve(time_limit=args.time_limit)
+        try:
+            steps, moves, res_state = solver.solve(time_limit=args.time_limit)
+        except KeyboardInterrupt:
+            print("\nПрервано пользователем (Ctrl+C)")
+            steps = 0
+            moves = []
+            res_state = start_state
         dt = _time.perf_counter() - t0
 
         last_result = {

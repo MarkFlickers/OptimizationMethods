@@ -478,7 +478,7 @@ class E2EPipeline:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - INFO - ORDER detected, running BranchIntegrity only")
             step_sequence.append("branch_integrity")
         else:
-            step_sequence.extend(["parse", "temp_preflight", "solve"])
+            step_sequence.extend(["parse", "solve"]) # "temp_preflight",
 
         for step_name in step_sequence:
             if step_name not in self.steps:

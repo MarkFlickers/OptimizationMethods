@@ -105,15 +105,15 @@ if __name__ == "__main__":
     run_id = NAME.split("_")[-1] 
     DATA_path = "GroupProblem/True_Python/data/outputs/" + NAME + "/parsed_data.json"
     jsonl_file = f"runs_{run_id}.jsonl"
-    top_n = 1   # Best count
+    top_n = 15   # Best count
 
     run_astar(
-        temp_start=8.824541446,
+        temp_start=1.0,
         jsonl_file=jsonl_file,
         data_path=DATA_path,
         num_temps=1,
-        step=0.0,
+        step=0.0001,
         workers=8,
-        time_limit=5.0,
+        time_limit=0.5,
     )
     print_top5_steps_unperf0(jsonl_file, top_n=top_n)
