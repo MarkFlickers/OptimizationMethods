@@ -105,7 +105,7 @@ if __name__ == "__main__":
     run_id = NAME.split("_")[-1] 
     DATA_path = "GroupProblem/True_Python/data/outputs/" + NAME + "/parsed_data.json"
     jsonl_file = f"runs_{run_id}.jsonl"
-    top_n = 1   # Best count
+    top_n = 5   # Best count
 
     run_astar(
         temp_start=1.0,
