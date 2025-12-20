@@ -111,7 +111,7 @@ if __name__ == "__main__":
         temp_start=1.0,
         jsonl_file=jsonl_file,
         data_path=DATA_path,
-        num_temps=10000,
+        num_temps=1,
         step=0.001,
         workers=8,
         time_limit=5.0,
