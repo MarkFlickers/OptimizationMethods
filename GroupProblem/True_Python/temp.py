@@ -100,7 +100,7 @@ def run_astar(
 
 
 if __name__ == "__main__":
-    NAME = "BIRDS_2"
+    NAME = "BIRDS_3"
 
     run_id = NAME.split("_")[-1] 
     DATA_path = "GroupProblem/True_Python/data/outputs/" + NAME + "/parsed_data.json"
@@ -108,11 +108,11 @@ if __name__ == "__main__":
     top_n = 1   # Best count
 
     run_astar(
-        temp_start=8.824541446,
+        temp_start=1.0,
         jsonl_file=jsonl_file,
         data_path=DATA_path,
-        num_temps=1,
-        step=0.0,
+        num_temps=10000,
+        step=0.001,
         workers=8,
         time_limit=5.0,
     )
