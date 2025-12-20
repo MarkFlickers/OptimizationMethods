@@ -100,19 +100,27 @@ def run_astar(
 
 
 if __name__ == "__main__":
-    NAME = "BIRDS_2"
+    NAME = "BIRDS_3"
 
     run_id = NAME.split("_")[-1] 
     DATA_path = "GroupProblem/True_Python/data/outputs/" + NAME + "/parsed_data.json"
     jsonl_file = f"runs_{run_id}.jsonl"
+<<<<<<< HEAD
     top_n = 15   # Best count
+=======
+    top_n = 5   # Best count
+>>>>>>> a8d93fbb846d91e6084df880f4c3a7da45f3a2e6
 
     run_astar(
         temp_start=1.0,
         jsonl_file=jsonl_file,
         data_path=DATA_path,
         num_temps=1,
+<<<<<<< HEAD
         step=0.0001,
+=======
+        step=0.001,
+>>>>>>> a8d93fbb846d91e6084df880f4c3a7da45f3a2e6
         workers=8,
         time_limit=0.5,
     )
