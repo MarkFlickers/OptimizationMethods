@@ -7,7 +7,7 @@
 // BIRDS 3
 {"temp": 1.214, "run": 1, "steps": 100, "dt_sec": 0.033, "unperf": 0.0, "ts": 1765965927.268426}
 // BIRDS
-
+{"temp": 1.000360000, "solved": false, "steps": 107, "unperf": 5922.1168, "dt_sec": 5.193354799999952, "time_limit": 5.0, "total_tune_sec": 365.5227089}
 // BIRDS
 
 // BIRDS
